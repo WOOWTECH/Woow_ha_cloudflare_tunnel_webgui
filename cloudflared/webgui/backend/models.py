@@ -7,6 +7,9 @@ replicate the cross-field checks the forked ``prepare`` script enforces.
 """
 from __future__ import annotations
 
+import base64
+import binascii
+import json
 import re
 from enum import Enum
 from typing import List, Optional
@@ -29,6 +32,37 @@ HOSTNAME_ERROR = (
     "is not a valid hostname. Do not include the protocol (e.g. 'https://') "
     "or a port (e.g. ':8123'), and use lowercase characters only."
 )
+
+TOKEN_RE = re.compile(r"eyJ[A-Za-z0-9+/=_-]+")
+
+TOKEN_ERROR = (
+    "does not look like a valid Cloudflare tunnel token. Copy the token from "
+    "the Cloudflare Zero Trust dashboard (the long text starting with 'eyJ') "
+    "— a broken token would prevent the tunnel from starting."
+)
+
+
+def normalize_tunnel_token(raw: str) -> str:
+    """Extract and validate a Cloudflare tunnel token from user input.
+
+    Users often paste the full install command
+    (``cloudflared service install eyJ...``) or a token with surrounding
+    whitespace; a garbled token would make cloudflared exit at startup.
+    Accept anything that CONTAINS a well-formed token and store just the
+    token. A tunnel token is base64 JSON with account/tunnel/secret fields.
+    """
+    candidate_match = TOKEN_RE.search(raw)
+    if not candidate_match:
+        raise ValueError(f"'{raw[:40]}...' {TOKEN_ERROR}")
+    candidate = candidate_match.group(0)
+    try:
+        padded = candidate + "=" * (-len(candidate) % 4)
+        data = json.loads(base64.b64decode(padded))
+    except (binascii.Error, ValueError):
+        raise ValueError(f"The pasted value {TOKEN_ERROR}") from None
+    if not isinstance(data, dict) or not {"a", "t", "s"} <= set(data):
+        raise ValueError(f"The pasted value {TOKEN_ERROR}")
+    return candidate
 
 
 class LogLevel(str, Enum):
@@ -92,6 +126,17 @@ class AddonOptions(BaseModel):
             raise ValueError(f"'{v}' {HOSTNAME_ERROR}")
         return v
 
+    @field_validator("tunnel_token")
+    @classmethod
+    def _tunnel_token(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            # Empty string = explicit "remove the token".
+            return ""
+        return normalize_tunnel_token(v)
+
     @field_validator("run_parameters")
     @classmethod
     def _run_parameters(cls, v: Optional[List[str]]) -> Optional[List[str]]:
@@ -115,22 +160,14 @@ class AddonOptions(BaseModel):
     @model_validator(mode="after")
     def _cross_checks(self) -> "AddonOptions":
         # Mirror of the prepare script's exit conditions, surfaced early.
+        # NOTE: the "minimal configuration" check does NOT live here — a
+        # token-mode user keeps their stored token by omitting tunnel_token,
+        # so the check can only run after the router merges the stored token
+        # (see routers/options.py::ensure_minimal_config).
         if self.catch_all_service and self.nginx_proxy_manager:
             raise ValueError(
                 "'nginx_proxy_manager' and 'catch_all_service' are mutually "
                 "exclusive. Please remove one of them."
-            )
-        has_token = bool((self.tunnel_token or "").strip())
-        if not has_token and not (
-            self.external_hostname
-            or self.additional_hosts
-            or (self.catch_all_service or "").strip()
-            or self.nginx_proxy_manager
-        ):
-            raise ValueError(
-                "Cannot run without tunnel_token, external_hostname, "
-                "additional_hosts, catch_all_service or nginx_proxy_manager. "
-                "Please set at least one of these options."
             )
         return self
 
@@ -208,6 +245,8 @@ class WizardState(BaseModel):
     tunnel_uuid: Optional[str] = None
     login_url: Optional[str] = None
     tunnel_status: str = "unknown"
+    unconfigured: bool = False
+    prepare_failed: bool = False
 
 
 class TunnelStatus(BaseModel):
@@ -222,3 +261,4 @@ class HealthResponse(BaseModel):
     addon_version: Optional[str] = None
     addon_state: Optional[str] = None
     tunnel: TunnelStatus
+    restart_error: Optional[str] = None
