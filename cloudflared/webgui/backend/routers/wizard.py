@@ -20,6 +20,7 @@ from ..supervisor import SupervisorError
 router = APIRouter(prefix="/api/wizard", tags=["wizard"])
 
 DATA_DIR = Path(os.environ.get("ADDON_DATA", "/data"))
+MARKER_DIR = Path(os.environ.get("WEBGUI_MARKER_DIR", "/tmp"))
 
 
 @router.get("/state", response_model=WizardState)
@@ -52,4 +53,6 @@ async def wizard_state() -> WizardState:
         # Only show a login URL while we are actually waiting for one.
         login_url=logwatcher.login_url if (mode == "local" and not has_cert) else None,
         tunnel_status=status,
+        unconfigured=(MARKER_DIR / "webgui-unconfigured").exists(),
+        prepare_failed=(MARKER_DIR / "webgui-prepare-failed").exists(),
     )
