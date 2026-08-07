@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.0.2
+
+Pre-launch hardening — every item below came out of a multi-agent review
+pass plus live install testing on HAOS (replacing the original Cloudflared
+add-on in production).
+
+### Fixed
+
+- **Token-mode users could not save** unrelated changes without re-entering
+  their token: the minimal-config check ran before the stored token was
+  merged. The check now runs in the router, after the merge (regression
+  test added).
+- A configuration whose setup fails mid-way (e.g. tunnel name mismatch,
+  DNS route failure) no longer halts the whole container — the Web GUI
+  stays up for repair, and the setup is retried every 5 minutes so
+  transient failures (network not ready after reboot) self-heal.
+- Logs page: the Connect button was permanently dead after Disconnect;
+  repeated connects could leak duplicate WebSocket streams.
+- TokenInput now re-syncs with the stored state after save/reset.
+- A rejected restart is surfaced in the GUI ("saved but not applied")
+  instead of silently pretending success; a fast restart no longer leaves
+  the UI stuck in "restarting" for two minutes.
+- Frontend hostname validation now matches the backend/upstream rules
+  (umlaut hostnames allowed, uppercase rejected client-side with a clear
+  message).
+- Setup wizard no longer flashes raw fetch errors during the add-on
+  restart it just asked for.
+- Removed validate-options round-trip that used a wrong payload shape; the
+  Supervisor's on-write validation is authoritative.
+
+### Added
+
+- `ingress_panel: true` — the GUI appears in the HA sidebar by default (as
+  documented).
+- Tunnel-token format validation: pasting the full `cloudflared service
+  install eyJ...` command now extracts the token automatically; garbled or
+  truncated tokens are rejected before they can take the tunnel down.
+- Dashboard first-run guidance (unconfigured / setup-failed banners) and
+  clearer error surfacing when the Supervisor is unreachable.
+- Log stream redaction: tunnel tokens and tunnel.json secrets can no
+  longer leak through the GUI log view at debug/trace log levels.
+
+### Changed
+
+- `tunnel_token` schema type `str?` → `password?` (same values accepted;
+  the HA configuration UI now masks the secret).
+- Backend dependencies fully pinned incl. transitive packages; frontend
+  build no longer falls back from `npm ci` to unpinned `npm install`.
+- English-only GUI copy (removed leftover Chinese strings from the
+  standalone project).
+
 ## 1.0.1
 
 ### Fixed
