@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.0.3
+
+Hardening and test coverage following live verification on HAOS. Both sides
+of the Ingress trust boundary were confirmed on a running instance: a
+neighbouring add-on calling the API directly on the container IP with
+spoofed `X-Ingress-Path` / `X-Hass-Source` headers is refused, while the
+real sidebar panel renders normally.
+
+### Changed
+
+- The Ingress allow-list no longer relies solely on the hard-coded
+  `172.30.32.2`. The Supervisor's address is resolved at startup and added,
+  so an install whose Supervisor sits elsewhere cannot lock the user out of
+  their own GUI; the well-known address remains the fallback when DNS is
+  unavailable.
+
+### Added
+
+- Rejected requests are now logged once per peer, with the offending address
+  and the addresses that would have been accepted. A bare 403 with an empty
+  log was not supportable in a commercial deployment.
+- `cloudflared/tests/test_resilience_patches.sh` — 19 assertions covering the
+  s6 / bash resilience patches. These paths never execute in remote-managed
+  (token) mode, so a production token-mode instance cannot exercise them and
+  they previously had no coverage. The harness runs the real committed
+  scripts against a stubbed bashio / cloudflared / sleep: a failing prepare
+  records its marker and still exits 0 (the container, and with it the Web
+  GUI, survives), stale markers are cleared, and run.sh idles when
+  unconfigured, retries a failed setup until it recovers, and otherwise
+  starts cloudflared with the upstream flags unchanged.
+- Trust-boundary unit tests covering both failure modes: letting a
+  neighbouring add-on in, and locking the real user out.
+
 ## 1.0.2
 
 Pre-launch hardening — every item below came out of a multi-agent review
