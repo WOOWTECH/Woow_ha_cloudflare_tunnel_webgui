@@ -8,6 +8,7 @@ used — the GUI never touches other add-ons.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any, AsyncIterator, Optional
 
@@ -28,15 +29,20 @@ class SupervisorError(RuntimeError):
 class SupervisorClient:
     def __init__(self) -> None:
         self._session: Optional[aiohttp.ClientSession] = None
+        self._session_lock = asyncio.Lock()
+        # Set when a restart request is rejected by the Supervisor, so the
+        # GUI can surface "saved but not applied" instead of silent success.
+        self.last_restart_error: Optional[str] = None
 
     @property
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
 
     async def session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(base_url=SUPERVISOR_URL)
-        return self._session
+        async with self._session_lock:
+            if self._session is None or self._session.closed:
+                self._session = aiohttp.ClientSession(base_url=SUPERVISOR_URL)
+            return self._session
 
     async def close(self) -> None:
         if self._session and not self._session.closed:
@@ -92,22 +98,27 @@ class SupervisorClient:
         info = await self.self_info()
         return info.get("options") or {}
 
-    async def validate_options(self, options: dict) -> None:
-        """Ask the Supervisor to validate options against the add-on schema."""
-        await self._request(
-            "POST", "/addons/self/options/validate", json={"options": options}
-        )
-
     async def set_options(self, options: dict) -> None:
+        """Store options. The Supervisor validates them against the add-on
+        schema on write and rejects invalid payloads with a message."""
         await self._request("POST", "/addons/self/options", json={"options": options})
 
     async def restart_self(self) -> None:
-        """Restart this add-on. The response may never arrive (we die first)."""
+        """Restart this add-on (invoked as a background task after the HTTP
+        response is sent). The Supervisor call may be cut short when this
+        process is torn down mid-restart — that is expected (not an error).
+        A genuine rejection is recorded so the GUI can surface it."""
+        self.last_restart_error = None
         try:
-            await self._request("POST", "/addons/self/restart", timeout=10.0)
-        except SupervisorError:
-            # A timeout / dropped connection here is expected mid-restart.
-            pass
+            await self._request("POST", "/addons/self/restart", timeout=60.0)
+        except SupervisorError as exc:
+            # Timeouts / dropped connections are the normal teardown race;
+            # anything else is a real rejection worth surfacing.
+            if exc.status not in (502, 504):
+                self.last_restart_error = str(exc)
+            logging.getLogger(__name__).error(
+                "Supervisor restart request did not complete: %s", exc
+            )
 
     async def logs(self, lines: int = 400) -> str:
         """Return a snapshot of the most recent add-on log lines."""
