@@ -8,6 +8,17 @@
       when it is needed — no digging through logs.
     </p>
 
+    <!-- Prepare failure banner -->
+    <div
+      v-if="setupStore.state?.prepare_failed"
+      class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+    >
+      <span class="font-medium">The last tunnel setup attempt failed.</span>
+      Check the Logs page for the exact error, fix the configuration on the
+      Config page, then restart the add-on. The tunnel stays stopped until
+      then — this GUI keeps running so you can repair it from here.
+    </div>
+
     <!-- Token mode notice -->
     <div
       v-if="setupStore.state?.mode === 'token'"
@@ -132,8 +143,10 @@
       </WizardStep>
     </template>
 
+    <!-- Suppressed while the add-on restarts: transient fetch failures are
+         expected then and would contradict our own instructions. -->
     <div
-      v-if="setupStore.error"
+      v-if="setupStore.error && !tunnelStore.restarting"
       class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
     >
       {{ setupStore.error }}
@@ -145,6 +158,7 @@
 import { computed, onMounted, onUnmounted, ref, h, defineComponent } from 'vue'
 import { useSetupStore } from '@/stores/setup'
 import { useConfigStore } from '@/stores/config'
+import { useTunnelStore } from '@/stores/tunnel'
 
 /** Inline step card: numbered circle + title + status. */
 const WizardStep = defineComponent({
@@ -184,6 +198,7 @@ const WizardStep = defineComponent({
 })
 
 const setupStore = useSetupStore()
+const tunnelStore = useTunnelStore()
 const configStore = useConfigStore()
 const copied = ref(false)
 

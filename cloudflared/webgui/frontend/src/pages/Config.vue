@@ -390,6 +390,11 @@ async function onSave(restart: boolean) {
   if (ok) {
     clearToken.value = false
     tokenInput.value = null
+  } else if (restart && configStore.error && /fetch|network|load failed/i.test(configStore.error)) {
+    // The save may have succeeded with the response lost to the add-on
+    // teardown — treat a network-level failure on Save & Restart as a
+    // restart in flight; the health poll will confirm either way.
+    tunnelStore.markRestarting()
   }
 }
 

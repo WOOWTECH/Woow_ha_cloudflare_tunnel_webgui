@@ -18,6 +18,27 @@ if [ -f /tmp/webgui-unconfigured ]; then
     exec sleep infinity
 fi
 
+# WOOWTECH Web GUI patch: the prepare step failed (see the error above in
+# this log). Upstream would halt the whole container here; keep the Web GUI
+# alive instead so the configuration can be fixed in the browser, and retry
+# the setup periodically so transient failures (e.g. network not up yet
+# after a host reboot) self-heal without manual intervention.
+if [ -f /tmp/webgui-prepare-failed ]; then
+    bashio::log.error "Tunnel setup failed — see the messages above."
+    bashio::log.notice "Fix the configuration in the Web GUI (or the add-on configuration page) and restart the add-on."
+    bashio::log.notice "The add-on retries the setup every 5 minutes automatically, so transient errors self-heal."
+    while [ -f /tmp/webgui-prepare-failed ]; do
+        sleep 300
+        bashio::log.info "Retrying tunnel setup..."
+        if /etc/s6-overlay/s6-rc.d/prepare/run.sh; then
+            rm -f /tmp/webgui-prepare-failed
+        else
+            bashio::log.warning "Tunnel setup retry failed; next retry in 5 minutes."
+        fi
+    done
+    bashio::log.info "Tunnel setup succeeded on retry — starting the tunnel."
+fi
+
 # Set common cloudflared tunnel options
 options+=(--no-autoupdate)
 options+=(--metrics="0.0.0.0:36500")

@@ -29,4 +29,5 @@ async def health() -> HealthResponse:
         addon_version=addon_version,
         addon_state=addon_state,
         tunnel=tunnel,
+        restart_error=supervisor.last_restart_error,
     )

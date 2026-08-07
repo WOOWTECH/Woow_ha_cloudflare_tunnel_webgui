@@ -20,9 +20,23 @@ from .supervisor import SupervisorClient, SupervisorError
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 LOGIN_URL_RE = re.compile(r"https://dash\.cloudflare\.com/argotunnel\S*")
 
+# Secrets that can appear in the add-on log at debug/trace verbosity
+# (e.g. run.sh logging the full cloudflared command line, or the prepare
+# script dumping tunnel.json). The HA Log tab shows them regardless (same
+# as upstream) — but the GUI must not become a second exposure surface.
+REDACTIONS = [
+    (re.compile(r"(--token[= ])\S+"), r"\1<redacted>"),
+    (re.compile(r"(\"TunnelSecret\"\s*:\s*\")[^\"]+(\")"), r"\1<redacted>\2"),
+    (re.compile(r"(tunnel_token[\"']?\s*[:=]\s*[\"']?)[A-Za-z0-9+/=_-]{8,}"), r"\1<redacted>"),
+    (re.compile(r"eyJ[A-Za-z0-9+/=_-]{40,}"), "<redacted-token>"),
+]
+
 
 def clean_line(line: str) -> str:
-    return ANSI_RE.sub("", line)
+    line = ANSI_RE.sub("", line)
+    for pattern, repl in REDACTIONS:
+        line = pattern.sub(repl, line)
+    return line
 
 
 class LogWatcher:

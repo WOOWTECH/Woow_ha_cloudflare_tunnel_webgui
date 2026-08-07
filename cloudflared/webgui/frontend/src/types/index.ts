@@ -69,6 +69,7 @@ export interface HealthStatus {
   addon_version: string | null
   addon_state: string | null
   tunnel: TunnelStatus
+  restart_error: string | null
 }
 
 export type SetupMode = 'local' | 'token'
@@ -81,4 +82,6 @@ export interface WizardState {
   tunnel_uuid: string | null
   login_url: string | null
   tunnel_status: string
+  unconfigured: boolean
+  prepare_failed: boolean
 }

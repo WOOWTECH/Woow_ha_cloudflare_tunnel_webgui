@@ -52,14 +52,14 @@
             data-test="remove-row"
             @click="removeRow(i)"
           >
-            刪除
+            Remove
           </button>
         </div>
       </div>
     </div>
 
     <div v-if="props.routes.length === 0" class="text-sm text-gray-400">
-      尚未新增任何路由。
+      No hosts added yet.
     </div>
 
     <div>
@@ -69,7 +69,7 @@
         data-test="add-row"
         @click="addRow"
       >
-        + 新增路由
+        + Add host
       </button>
     </div>
   </div>

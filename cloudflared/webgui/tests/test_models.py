@@ -1,7 +1,20 @@
+import base64
+import json
+
 import pytest
 from pydantic import ValidationError
 
 from backend.models import AddonOptions, AdditionalHost, OptionsRead
+
+# A structurally valid Cloudflare tunnel token: base64 JSON with a/t/s keys.
+# (base64 of a JSON object starting with {"a" always begins with "eyJ".)
+VALID_TOKEN = (
+    base64.b64encode(
+        json.dumps({"a": "account", "t": "tunnel-uuid", "s": "secret"}).encode()
+    )
+    .decode()
+    .rstrip("=")
+)
 
 
 def make(**kw):
@@ -56,15 +69,45 @@ class TestCrossChecks:
         with pytest.raises(ValidationError, match="mutually exclusive"):
             make(catch_all_service="http://x", nginx_proxy_manager=True)
 
-    def test_empty_config_rejected(self):
-        with pytest.raises(ValidationError, match="Cannot run without"):
-            AddonOptions(external_hostname="", additional_hosts=[])
+    def test_empty_config_allowed_at_model_level(self):
+        # The minimal-config check lives in the router (after the stored
+        # token merge) — the model must NOT reject an empty body, or
+        # token-mode users could never save (regression: v1.0.1).
+        opts = AddonOptions(external_hostname="", additional_hosts=[])
+        assert opts.external_hostname == ""
 
     def test_token_only_config_allowed(self):
         opts = AddonOptions(
-            external_hostname="", additional_hosts=[], tunnel_token="abc"
+            external_hostname="", additional_hosts=[], tunnel_token=VALID_TOKEN
         )
-        assert opts.tunnel_token == "abc"
+        assert opts.tunnel_token == VALID_TOKEN
+
+
+class TestTunnelTokenValidation:
+    def test_valid_token_accepted(self):
+        opts = make(tunnel_token=VALID_TOKEN)
+        assert opts.tunnel_token == VALID_TOKEN
+
+    def test_token_extracted_from_install_command(self):
+        pasted = f"cloudflared service install {VALID_TOKEN}"
+        opts = make(tunnel_token=pasted)
+        assert opts.tunnel_token == VALID_TOKEN
+
+    def test_token_with_whitespace_trimmed(self):
+        opts = make(tunnel_token=f"  {VALID_TOKEN}\n")
+        assert opts.tunnel_token == VALID_TOKEN
+
+    def test_garbled_token_rejected(self):
+        with pytest.raises(ValidationError, match="tunnel token"):
+            make(tunnel_token="definitely-not-a-token")
+
+    def test_truncated_token_rejected(self):
+        with pytest.raises(ValidationError, match="tunnel token"):
+            make(tunnel_token=VALID_TOKEN[: len(VALID_TOKEN) // 4])
+
+    def test_empty_string_means_remove(self):
+        opts = make(tunnel_token="   ")
+        assert opts.tunnel_token == ""
 
 
 class TestToSupervisorOptions:
