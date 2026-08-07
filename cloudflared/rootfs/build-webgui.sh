@@ -11,7 +11,7 @@ set -eux
 apk add --no-cache python3 py3-pip
 
 # Backend dependencies (pinned; musllinux wheels only, no compiler needed)
-pip3 install --no-cache-dir --break-system-packages \
+pip3 install --no-cache-dir --break-system-packages --only-binary=:all: \
     -r /opt/webgui/backend/requirements.txt
 
 # Trim pip cache remnants
