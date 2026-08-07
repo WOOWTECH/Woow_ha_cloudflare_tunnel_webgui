@@ -41,8 +41,28 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: ℹ️ Read add-on version
+        id: version
+        run: |
+          version=$(sed -n 's/^version:[[:space:]]*//p' cloudflared/config.yaml | tr -d '"')
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Add-on version: ${version}"
+
+      - name: 🛡️ Guard against overwriting a published version tag
+        id: guard
+        if: github.event_name != 'pull_request'
+        run: |
+          image="ghcr.io/woowtech/${{ matrix.arch }}-addon-cloudflared-webgui:${{ steps.version.outputs.version }}"
+          if docker manifest inspect "$image" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::${image} already exists — skipping publish. Bump the version in cloudflared/config.yaml to release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 🚀 Build ${{ matrix.arch }} add-on
-        uses: home-assistant/builder@master
+        if: github.event_name == 'pull_request' || steps.guard.outputs.exists == 'false'
+        uses: home-assistant/builder@2026.06.0
         with:
           args: |
             ${{ github.event_name == 'pull_request' && '--test' || '' }} \
