@@ -11,6 +11,33 @@
       automatically...
     </div>
 
+    <!-- First-run guidance -->
+    <div
+      v-if="setupStore.state?.unconfigured"
+      class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"
+    >
+      <span class="font-medium">Welcome!</span> The add-on is not configured
+      yet, so the tunnel is stopped.
+      <router-link to="/setup" class="font-medium underline">
+        Open the Setup page
+      </router-link>
+      to get your tunnel running in a few minutes.
+    </div>
+
+    <!-- Setup failure guidance -->
+    <div
+      v-else-if="setupStore.state?.prepare_failed"
+      class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+    >
+      <span class="font-medium">The last tunnel setup attempt failed.</span>
+      See the
+      <router-link to="/logs" class="font-medium underline">Logs</router-link>
+      for details, fix it on the
+      <router-link to="/config" class="font-medium underline">Config</router-link>
+      page, then restart. The add-on also retries automatically every 5
+      minutes in case the failure was transient.
+    </div>
+
     <!-- Status Cards -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <TunnelStatus :tunnel="tunnelStore.health?.tunnel ?? null" />
@@ -67,14 +94,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useTunnelStore } from '@/stores/tunnel'
 import { useConfigStore } from '@/stores/config'
+import { useSetupStore } from '@/stores/setup'
 import TunnelStatus from '@/components/TunnelStatus.vue'
 import StatusCard from '@/components/StatusCard.vue'
 
 const tunnelStore = useTunnelStore()
 const configStore = useConfigStore()
+const setupStore = useSetupStore()
 
 const mode = computed(() =>
   configStore.options ? (configStore.options.tunnel_token_set ? 'token' : 'local') : 'unknown'
@@ -85,6 +114,7 @@ const modeDescription = computed(() => {
     return 'Remote-managed tunnel (Cloudflare dashboard token) — all other options are ignored.'
   if (mode.value === 'local')
     return 'Local-managed tunnel (cert.pem) — configured by this add-on.'
+  if (configStore.error) return `Could not load options: ${configStore.error}`
   return 'Loading...'
 })
 
@@ -97,5 +127,7 @@ function onRestart() {
 onMounted(() => {
   tunnelStore.fetchHealth()
   configStore.fetchOptions()
+  setupStore.startPolling(5000)
 })
+onUnmounted(() => setupStore.stopPolling())
 </script>
