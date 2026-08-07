@@ -16,16 +16,12 @@ class FakeSupervisor:
     def __init__(self):
         self.options = {"external_hostname": "", "additional_hosts": []}
         self.restarted = False
-        self.validated = None
 
     async def self_info(self):
         return {"version": "1.0.0", "state": "started", "options": self.options}
 
     async def get_options(self):
         return dict(self.options)
-
-    async def validate_options(self, options):
-        self.validated = options
 
     async def set_options(self, options):
         self.options = options
@@ -43,7 +39,6 @@ def fake_supervisor(monkeypatch):
     for name in (
         "self_info",
         "get_options",
-        "validate_options",
         "set_options",
         "restart_self",
         "ping",
