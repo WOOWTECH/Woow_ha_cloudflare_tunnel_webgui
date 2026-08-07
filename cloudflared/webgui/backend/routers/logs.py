@@ -5,16 +5,13 @@ what the HA add-on Log tab shows (bashio + cloudflared lines), minus ANSI
 color codes.
 """
 import asyncio
-import os
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from ..ingress_guard import guard
 from ..instances import logwatcher
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
-
-INGRESS_GATEWAY = "172.30.32.2"
-DEV_MODE = os.environ.get("WEBGUI_DEV", "") == "1"
 
 
 @router.get("")
@@ -30,7 +27,8 @@ async def stream_logs(ws: WebSocket) -> None:
     # HTTP middleware does not cover WebSockets — enforce the ingress-only
     # guard here as well.
     client = ws.client.host if ws.client else ""
-    if not DEV_MODE and client not in (INGRESS_GATEWAY, "127.0.0.1", "::1"):
+    if not guard.allows(client):
+        guard.reject(client, "WebSocket /api/logs/stream")
         await ws.close(code=4403)
         return
     await ws.accept()
