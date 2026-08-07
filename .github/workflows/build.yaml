@@ -62,10 +62,13 @@ jobs:
 
       - name: 🚀 Build ${{ matrix.arch }} add-on
         if: github.event_name == 'pull_request' || steps.guard.outputs.exists == 'false'
-        # master @ 6aa51d5 (2026-07-30) — the exact code that built
-        # v1.0.0–v1.0.2. SHA-pinning keeps the immutability we wanted
-        # without the version regression the release tag introduced.
-        uses: home-assistant/builder@6aa51d57cae748bf94c85a154c1602c941cc36dd
+        # 2026.02.1 is the last release with a matching amd64-builder image
+        # on GHCR. This is also what @master silently falls back to inside
+        # action.yml — the exact combo that built v1.0.0–v1.0.2. Newer tags
+        # (2026.03.x, 2026.06.0) cut the ref but never published an image,
+        # and SHA pins fail because the action feeds the ref straight into
+        # `docker pull amd64-builder:<ref>`.
+        uses: home-assistant/builder@2026.02.1
         with:
           args: |
             ${{ github.event_name == 'pull_request' && '--test' || '' }} \
