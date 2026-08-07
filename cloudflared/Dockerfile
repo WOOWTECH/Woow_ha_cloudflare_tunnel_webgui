@@ -3,8 +3,10 @@
 FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-build
 
 WORKDIR /build
-COPY webgui/frontend/package.json webgui/frontend/package-lock.json* ./
-RUN npm ci --ignore-scripts 2>/dev/null || npm install
+# Strict, lockfile-pinned, no lifecycle scripts — a desynced lockfile must
+# fail the build loudly rather than fall back to unpinned resolution.
+COPY webgui/frontend/package.json webgui/frontend/package-lock.json ./
+RUN npm ci --ignore-scripts
 COPY webgui/frontend/ ./
 RUN npm run build
 
