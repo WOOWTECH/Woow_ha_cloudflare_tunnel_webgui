@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1
+
+### Fixed
+
+- Web GUI crashed on startup (`ModuleNotFoundError: _zstd`): the base
+  image's Python 3.14 on Alpine is built without the stdlib zstd module,
+  which aiohttp 3.13.0 imports unconditionally. Bumped to aiohttp 3.14.3,
+  which guards the import and falls back gracefully.
+
 ## 1.0.0
 
 First release of **Cloudflared Web GUI** — a fork of
