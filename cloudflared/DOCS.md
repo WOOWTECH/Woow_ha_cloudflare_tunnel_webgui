@@ -1,10 +1,42 @@
-# Home Assistant App (Add-on): Cloudflared
+# Home Assistant App (Add-on): Cloudflared Web GUI
 
 Cloudflared connects your Home Assistant Instance via a secure tunnel to a domain
 or subdomain at Cloudflare. This allows you to expose your Home Assistant
 instance and other services to the Internet without opening ports on your router.
 Additionally, you can utilize Cloudflare Zero Trust to further secure your
 connection.
+
+This add-on is a fork of
+[homeassistant-apps/app-cloudflared][upstream-cloudflared] that adds a
+**Web GUI** on top of the unchanged tunnel core. All configuration options,
+their behavior, and the log output are identical to the original add-on —
+everything documented below applies unchanged.
+
+## Web GUI
+
+The Web GUI is served through Home Assistant Ingress: open it from the add-on's
+**OPEN WEB UI** button or the **Cloudflared** entry in the sidebar. No extra
+port is exposed, and access is protected by your Home Assistant login.
+
+- **Dashboard** — live tunnel status (edge connections via the metrics
+  endpoint), add-on state, and a restart button.
+- **Setup** — a guided first-run wizard. When the add-on runs
+  `cloudflared tunnel login`, the GUI captures the authorization URL from the
+  log and shows it as a clickable link, so you don't have to copy it out of
+  the log tab.
+- **Config** — edit every add-on option (the same Supervisor options shown on
+  the HA configuration page — both stay in sync automatically) and apply them
+  with Save & Restart.
+- **Logs** — live stream of the add-on log (same content as the HA Log tab)
+  with filtering and download.
+
+One quality-of-life difference: when the add-on is started with a completely
+empty configuration, the original add-on exits with a fatal error. This fork
+instead keeps the Web GUI running (with the tunnel stopped) so you can do
+your first-time setup right in the browser. As soon as a configuration is
+saved, behavior is identical to the original.
+
+[upstream-cloudflared]: https://github.com/homeassistant-apps/app-cloudflared
 
 ## Disclaimer
 

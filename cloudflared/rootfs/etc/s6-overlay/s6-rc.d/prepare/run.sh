@@ -17,13 +17,23 @@ validateConfigAndSetVars() {
     local validHostnameRegex="^(([a-z0-9äöüß]|[a-z0-9äöüß][a-z0-9äöüß\-]*[a-z0-9äöüß])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$"
 
     # Check for minimum configuration options
+    #
+    # WOOWTECH Web GUI patch: upstream exits with a fatal error here, which
+    # would stop the whole container — including the Web GUI — leaving the
+    # user unable to do their first-time setup from the GUI. Instead, mark
+    # the add-on as unconfigured and skip the tunnel setup; run.sh will idle
+    # until options are saved (via Web GUI or HA configuration page) and the
+    # add-on is restarted. Once configured, behavior is identical to upstream.
     if
         bashio::config.is_empty 'external_hostname' &&
             bashio::config.is_empty 'additional_hosts' &&
             bashio::config.is_empty 'catch_all_service' &&
             bashio::config.is_empty 'nginx_proxy_manager'
     then
-        bashio::exit.nok "Cannot run without tunnel_token, external_hostname, additional_hosts, catch_all_service or nginx_proxy_manager. Please set at least one of these app (add-on) options."
+        bashio::log.warning "Cannot run without tunnel_token, external_hostname, additional_hosts, catch_all_service or nginx_proxy_manager. Please set at least one of these app (add-on) options."
+        bashio::log.notice "Waiting for configuration: open the Web GUI (ingress panel) or the add-on configuration page, save your settings, and the tunnel will start automatically."
+        touch /tmp/webgui-unconfigured
+        exit 0
     fi
 
     # Set and validate 'external_hostname'
@@ -390,6 +400,10 @@ setCloudflaredLogLevel() {
 # ------------------------------------------------------------------------------
 main() {
     bashio::log.trace "${FUNCNAME[0]}"
+
+    # WOOWTECH Web GUI patch: clear a possible stale marker so the
+    # unconfigured check re-evaluates the current options on every start.
+    rm -f /tmp/webgui-unconfigured
 
     setCloudflaredLogLevel
 

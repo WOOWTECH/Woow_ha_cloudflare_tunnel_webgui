@@ -1,1 +1,10 @@
 .DS_Store
+
+# Web GUI frontend
+cloudflared/webgui/frontend/node_modules/
+cloudflared/webgui/frontend/dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/

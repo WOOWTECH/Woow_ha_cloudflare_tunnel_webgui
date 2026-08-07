@@ -8,6 +8,16 @@ declare config_file="/tmp/config.json"
 declare certificate="/data/cert.pem"
 declare -a options
 
+# WOOWTECH Web GUI patch: when the add-on is completely unconfigured the
+# prepare script skips the tunnel setup (instead of exiting fatally like
+# upstream) so the Web GUI stays reachable for first-time setup. Idle here
+# until the user saves a configuration and the add-on restarts.
+if [ -f /tmp/webgui-unconfigured ]; then
+    bashio::log.notice "Add-on is not configured yet — tunnel not started."
+    bashio::log.notice "Open the Web GUI (ingress panel) to configure it."
+    exec sleep infinity
+fi
+
 # Set common cloudflared tunnel options
 options+=(--no-autoupdate)
 options+=(--metrics="0.0.0.0:36500")

@@ -1,102 +1,125 @@
-# Home Assistant App (Add-on): Cloudflared
+# Cloudflared Web GUI — Home Assistant Add-on
 
-[![GitHub Release][releases-shield]][releases]
-![Project Stage][project-stage-shield]
-[![License][license-shield]](LICENSE.md)
+[繁體中文](README_zh-TW.md)
 
-![Supports aarch64 Architecture][aarch64-shield]
-![Supports amd64 Architecture][amd64-shield]
+**A fork of [homeassistant-apps/app-cloudflared][upstream] with a Web GUI on
+top of the unchanged tunnel core.**
 
-[![Github Actions][github-actions-shield]][github-actions]
-![Project Maintenance][maintenance-shield]
-![Reported Installations][installations-shield-stable]
+Use a Cloudflare Tunnel to remotely connect to Home Assistant without opening
+any ports — and configure the whole thing from your browser instead of a YAML
+options page and log-tab archaeology.
 
-Connect remotely to your Home Assistant and other services, without opening ports
-using Cloudflare Tunnel.
+## What you get
 
-## About
+Everything the original Cloudflared add-on does, behaving identically:
 
-Cloudflared connects your Home Assistant Instance via a secure tunnel to a domain
-or subdomain at Cloudflare. This allows you to expose your Home Assistant
-instance and other services to the Internet without opening ports on your router.
-Additionally, you can utilize Cloudflare Zero Trust to further secure your
-connection.
+- Local-managed tunnels (created by the add-on) and remote-managed tunnels
+  (`tunnel_token` from the Cloudflare dashboard).
+- The exact same Supervisor options schema: `external_hostname`,
+  `additional_hosts`, `tunnel_name`, `catch_all_service`,
+  `nginx_proxy_manager`, `post_quantum`, `tunnel_token`, `run_parameters`,
+  `log_level`.
+- The exact same log output in the Home Assistant Log tab.
 
-**To use this app (add-on), you have to own a domain name (e.g. example.com) that
-is using Cloudflare for its DNS entries. You can find more information about that
-in our [Wiki][wiki].**
+Plus a **Web GUI**, served through Home Assistant Ingress (sidebar panel,
+protected by your HA login, zero extra ports):
 
-**Please be aware that domains from _Freenom_ do not work anymore, so
-you have to chose / migrate to another registrar.**
+| Page | What it does |
+|------|--------------|
+| **Dashboard** | Live tunnel status (edge connections), add-on state, one-click restart |
+| **Setup** | Guided first run — the Cloudflare authorization URL appears as a clickable link instead of being buried in the log |
+| **Config** | Edit every add-on option; saved through the Supervisor API so the HA configuration page and the GUI always stay in sync |
+| **Logs** | Live log stream (same content as the HA Log tab) with filter and download |
 
-[:books: Read the full app (add-on) documentation][docs]
-
-## Disclaimer
-
-Please make sure you comply with the
-[Cloudflare Self-Serve Subscription Agreement][cloudflare-sssa] when using this
-app (add-on).
+The Supervisor options remain the **single source of truth**: whatever you
+save in the GUI shows up on the HA add-on configuration page and vice versa.
 
 ## Installation
 
-To install this app (add-on), manually add our repository to Home Assistant
-using [this link][repository] or by clicking the button below.
+1. Add this repository to your Home Assistant add-on store:
 
-[![Add Repository to HA][my-ha-badge]][my-ha-url]
+   [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FWOOWTECH%2FWoow_ha_cloudflare_tunnel_webgui)
 
-## Support
+   Or manually: **Settings → Add-ons → Add-on Store → ⋮ → Repositories** and
+   add `https://github.com/WOOWTECH/Woow_ha_cloudflare_tunnel_webgui`
 
-Got questions?
+2. Install the **Cloudflared Web GUI** add-on and start it.
 
-Feel free to [open an issue here][issue] on GitHub.
+3. Open the Web GUI (the add-on's **OPEN WEB UI** button or the sidebar
+   panel) and follow the Setup page. That's it — hostnames, routes, and the
+   Cloudflare authorization all happen in the browser.
 
-## Authors & contributors
+For all configuration details see the [add-on documentation](cloudflared/DOCS.md)
+— it is inherited from upstream and applies unchanged.
 
-The original setup of this repository is by [Tobias Brenner][tobias].
+## How it differs from upstream
 
-For a full list of all authors and contributors,
-check [the contributor's page][contributors].
+This fork deliberately keeps the tunnel core untouched (same s6 services,
+same bash scripts, same cloudflared invocation) so upstream releases can be
+merged with a plain `git merge`. The additions:
 
-## License
+- A `webgui` s6 service (FastAPI + Vue 3) running alongside the tunnel,
+  exposed via Ingress on the internal port 8099.
+- `hassio_role: manager` so the GUI can read/write the add-on's own options
+  and restart it through the Supervisor API.
+- One behavioral change: with a completely **empty** configuration the
+  original add-on exits fatally; this fork keeps the GUI reachable (tunnel
+  stopped) so first-time setup can happen in the browser. Any saved
+  configuration → behavior identical to upstream.
 
-MIT License
+## Architecture
 
-Copyright (c) 2026 Unofficial Home Assistant Apps (Add-ons)
+```
+┌─ Add-on container ─────────────────────────────────────────────┐
+│  s6-overlay                                                    │
+│   ├── prepare (oneshot, forked as-is): validate → login →      │
+│   │     create tunnel → build config.json → route DNS          │
+│   ├── cloudflared (main service, forked as-is): runs tunnel,   │
+│   │     stdout → HA Log tab                                    │
+│   └── webgui (new, FastAPI :8099 behind HA Ingress)            │
+│         ├── Supervisor API: options read/write, restart,       │
+│         │     log stream (→ ring buffer → WebSocket)           │
+│         ├── login-URL capture from the log stream              │
+│         └── tunnel status via cloudflared metrics :36500       │
+└────────────────────────────────────────────────────────────────┘
+```
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## Development
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+```bash
+# Backend (needs Python 3.12+)
+cd cloudflared/webgui
+python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
+WEBGUI_DEV=1 WEBGUI_STATIC=$PWD/frontend/dist \
+  .venv/bin/python -m uvicorn backend.main:app --port 8099
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+# Frontend (needs Node 22+)
+cd cloudflared/webgui/frontend
+npm install && npm run dev     # dev server proxies /api to :8099
+npm run build                  # type-checks + builds to dist/
 
-[aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
-[amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
-[cloudflare-sssa]: https://www.cloudflare.com/terms/
-[contributors]: https://github.com/homeassistant-apps/app-cloudflared/graphs/contributors
-[docs]: cloudflared/DOCS.md
-[github-actions-shield]: https://github.com/homeassistant-apps/app-cloudflared/workflows/CI/badge.svg
-[github-actions]: https://github.com/homeassistant-apps/app-cloudflared/actions
-[repository]: https://github.com/homeassistant-apps/repository
-[issue]: https://github.com/homeassistant-apps/app-cloudflared/issues
-[license-shield]: https://img.shields.io/github/license/homeassistant-apps/app-cloudflared
-[maintenance-shield]: https://img.shields.io/maintenance/yes/2026.svg
-[project-stage-shield]: https://img.shields.io/badge/project%20stage-production%20ready-brightgreen.svg
-[releases-shield]: https://img.shields.io/github/v/release/homeassistant-apps/app-cloudflared?include_prereleases
-[releases]: https://github.com/homeassistant-apps/app-cloudflared/releases
-[tobias]: https://github.com/brenner-tobias
-[my-ha-badge]: https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg
-[my-ha-url]: https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fhomeassistant-apps%2Frepository
-[wiki]: https://github.com/homeassistant-apps/app-cloudflared/wiki/How-tos
-[installations-shield-stable]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fanalytics.home-assistant.io%2Faddons.json&query=%24%5B%229074a9fa_cloudflared%22%5D.total&label=Reported%20Installations&link=https%3A%2F%2Fanalytics.home-assistant.io/add-ons
+# Full add-on image
+docker build cloudflared/ -t cloudflared-webgui:dev
+```
+
+## Syncing with upstream
+
+```bash
+git remote add upstream https://github.com/homeassistant-apps/app-cloudflared.git
+git fetch upstream
+git merge upstream/main   # conflicts only appear in files we deliberately changed
+```
+
+## Credits & license
+
+MIT — see [LICENSE.md](LICENSE.md).
+
+The tunnel core is the work of [homeassistant-apps/app-cloudflared][upstream]
+(originally by [Tobias Brenner][brenner-tobias]); the Web GUI is by
+[WOOWTECH](https://github.com/WOOWTECH), based on
+[Woow_cloudflare_tunnel_webgui][woow-standalone] (the standalone
+Docker/Podman variant of this GUI).
+
+[upstream]: https://github.com/homeassistant-apps/app-cloudflared
+[brenner-tobias]: https://github.com/brenner-tobias
+[woow-standalone]: https://github.com/WOOWTECH/Woow_cloudflare_tunnel_webgui

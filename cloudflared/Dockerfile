@@ -1,3 +1,14 @@
+# ── Stage 1: Build the Web GUI frontend (arch-independent static files) ──
+# BUILDPLATFORM keeps this stage native when cross-building for aarch64.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-build
+
+WORKDIR /build
+COPY webgui/frontend/package.json webgui/frontend/package-lock.json* ./
+RUN npm ci --ignore-scripts 2>/dev/null || npm install
+COPY webgui/frontend/ ./
+RUN npm run build
+
+# ── Stage 2: Add-on runtime ──────────────────────────────────────────────
 FROM ghcr.io/hassio-addons/base:21.0.1
 
 # Set S6 verbosity level
@@ -14,8 +25,13 @@ ARG CLOUDFLARED_VERSION="2026.7.3"
 # Copy root filesystem
 COPY rootfs /
 
-# Run the script that installs caddy and cloudflared
+# Run the script that installs cloudflared
 RUN ["/build.sh"]
+
+# Install the Web GUI backend and its Python runtime
+COPY webgui/backend /opt/webgui/backend
+COPY --from=frontend-build /build/dist /opt/webgui/static
+RUN ["/build-webgui.sh"]
 
 CMD ["/run.sh"]
 
@@ -34,11 +50,11 @@ LABEL \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
     io.hass.version="${BUILD_VERSION}" \
-    maintainer="homeassistant-apps <https://github.com/homeassistant-apps>" \
+    maintainer="WOOWTECH <https://github.com/WOOWTECH>" \
     org.opencontainers.image.title="${BUILD_NAME}" \
     org.opencontainers.image.description="${BUILD_DESCRIPTION}" \
-    org.opencontainers.image.vendor="homeassistant-apps <https://github.com/homeassistant-apps>" \
-    org.opencontainers.image.authors="homeassistant-apps <https://github.com/homeassistant-apps>" \
+    org.opencontainers.image.vendor="WOOWTECH <https://github.com/WOOWTECH>" \
+    org.opencontainers.image.authors="WOOWTECH <https://github.com/WOOWTECH>" \
     org.opencontainers.image.licenses="MIT" \
     org.opencontainers.image.url="https://github.com/${BUILD_REPOSITORY}" \
     org.opencontainers.image.source="https://github.com/${BUILD_REPOSITORY}" \
