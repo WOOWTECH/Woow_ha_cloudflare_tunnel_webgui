@@ -1,4 +1,4 @@
-# Cloudflared Web GUI — Home Assistant Add-on
+# Woow Cloudflared — Home Assistant Add-on
 
 [繁體中文](README_zh-TW.md)
 
@@ -43,7 +43,7 @@ save in the GUI shows up on the HA add-on configuration page and vice versa.
    Or manually: **Settings → Add-ons → Add-on Store → ⋮ → Repositories** and
    add `https://github.com/WOOWTECH/Woow_ha_cloudflare_tunnel_webgui`
 
-2. Install the **Cloudflared Web GUI** add-on and start it.
+2. Install the **Woow Cloudflared** add-on and start it.
 
 3. Open the Web GUI (the add-on's **OPEN WEB UI** button or the sidebar
    panel) and follow the Setup page. That's it — hostnames, routes, and the
