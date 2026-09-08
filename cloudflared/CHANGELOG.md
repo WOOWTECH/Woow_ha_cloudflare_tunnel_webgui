@@ -3,13 +3,13 @@
 ## 1.0.4 — 2026-09-08
 
 ### Changed
-- Rename the add-on from `Cloudflared Web GUI` to `Woow Cloudflared`, the
-  house prefix every other WOOWTECH-authored add-on in the App Store
-  carries. The
+- Rename the add-on from `Cloudflared Web GUI` to `Woow Cloudflared`, the house
+  prefix every other WOOWTECH-authored add-on in the App Store carries. The
   slug stays `cloudflared`: Home Assistant keys an installed add-on by slug, so
   changing it would strand the running instance and its tunnel credentials.
-- Carry the new name into the web GUI's page title, the FastAPI app title and
-  the startup log line, since this release republishes the image anyway.
+- Carry the new name into the surfaces baked into the image — the web GUI page
+  title, the FastAPI app title and the startup log line — since the version
+  bump republishes it anyway.
 
 ## 1.0.3
 
