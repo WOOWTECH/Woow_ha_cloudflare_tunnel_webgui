@@ -1,4 +1,4 @@
-# Cloudflared Web GUI — Home Assistant Add-on
+# Woow Cloudflared — Home Assistant Add-on
 
 [English](README.md)
 
@@ -42,7 +42,7 @@ Supervisor options 是**唯一事實來源**：在 GUI 存的設定會出現在 
    或手動：**設定 → 附加元件 → 附加元件商店 → ⋮ → 儲存庫**，加入
    `https://github.com/WOOWTECH/Woow_ha_cloudflare_tunnel_webgui`
 
-2. 安裝 **Cloudflared Web GUI** add-on 並啟動。
+2. 安裝 **Woow Cloudflared** add-on 並啟動。
 
 3. 打開 Web GUI（add-on 的 **OPEN WEB UI** 按鈕或側邊欄面板），照著 Setup
    頁走完即可——主機名稱、路由、Cloudflare 授權全部在瀏覽器裡完成。
