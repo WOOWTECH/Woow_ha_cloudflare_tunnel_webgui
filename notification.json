@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "repository": "WOOWTECH/Woow_ha_cloudflare_tunnel_webgui",
+  "components": {
+    "cloudflared": {
+      "id": "cloudflared",
+      "name": "Woow Cloudflared",
+      "version": "1.0.4",
+      "repository": "WOOWTECH/Woow_ha_cloudflare_tunnel_webgui",
+      "source_sha": "53776ea3536547a2da7309fa6f6c90dc7610a825",
+      "source_path": "cloudflared",
+      "config_file": "config.yaml",
+      "config_sha256": "sha256:ac8797cf6f9a1dbf68e78b163dbe51744734cc411f6c8ae8983c2e728cfb25a4",
+      "archive_sha256": "sha256:be0bc0f76a08cc2f4d5b8218fb8f1d59f1aeab1ae4adfc577f5024a64fc30ea4",
+      "context_fingerprint": "sha256:fe442b9db0b048d5c225226f086d5dfa25b3d3f9ff0afcba6c2811691dd00757",
+      "material_fingerprint": "sha256:8df170e7c4b5bca6a8025a598bcd5c569ae7619c4fa2e5bf2232b1720319d9ee",
+      "architectures": [
+        "aarch64",
+        "amd64"
+      ],
+      "config": {
+        "name": "Woow Cloudflared",
+        "version": "1.0.4",
+        "breaking_versions": [
+          "5.3.7",
+          "6.0.0"
+        ],
+        "slug": "cloudflared",
+        "description": "Use a Cloudflare Tunnel to remotely connect to Home Assistant without opening any ports — now with a Web GUI",
+        "url": "https://github.com/WOOWTECH/Woow_ha_cloudflare_tunnel_webgui",
+        "image": "ghcr.io/woowtech/{arch}-addon-cloudflared-webgui",
+        "startup": "services",
+        "init": false,
+        "hassio_api": true,
+        "hassio_role": "manager",
+        "ingress": true,
+        "ingress_port": 8099,
+        "ingress_panel": true,
+        "panel_icon": "mdi:cloud-lock-outline",
+        "panel_title": "Cloudflared",
+        "arch": [
+          "aarch64",
+          "amd64"
+        ],
+        "map": [
+          "addon_config:rw",
+          "homeassistant_config"
+        ],
+        "options": {
+          "external_hostname": "",
+          "additional_hosts": []
+        },
+        "ports": {
+          "36500/tcp": null
+        },
+        "schema": {
+          "external_hostname": "str?",
+          "additional_hosts": [
+            {
+              "hostname": "str",
+              "service": "str",
+              "disableChunkedEncoding": "bool?"
+            }
+          ],
+          "tunnel_name": "str?",
+          "catch_all_service": "str?",
+          "nginx_proxy_manager": "bool?",
+          "tunnel_token": "password?",
+          "post_quantum": "bool?",
+          "run_parameters": [
+            "match(^(--edge-bind-address|--edge-ip-version|--grace-period|--ha-connections|--logfile|--loglevel|--pidfile|--protocol|--region|--retries|--tag)=.*$)?"
+          ],
+          "log_level": "list(trace|debug|info|notice|warning|error|fatal)?"
+        }
+      },
+      "source_build_supported": true,
+      "images": {
+        "aarch64": {
+          "reference": "ghcr.io/woowtech/aarch64-addon-cloudflared-webgui:1.0.4",
+          "index_digest": "sha256:29d9f5b7d0f91ff74832069dff4f4a70182a03e01b071d6f0dfaf85435dc78f3",
+          "digest": "sha256:29d9f5b7d0f91ff74832069dff4f4a70182a03e01b071d6f0dfaf85435dc78f3",
+          "source_revision": ""
+        },
+        "amd64": {
+          "reference": "ghcr.io/woowtech/amd64-addon-cloudflared-webgui:1.0.4",
+          "index_digest": "sha256:c4d59b412384783ac57cc5c356d22f1ec5f40d85f4aa8eb16312ad3645cb9795",
+          "digest": "sha256:c4d59b412384783ac57cc5c356d22f1ec5f40d85f4aa8eb16312ad3645cb9795",
+          "source_revision": ""
+        }
+      },
+      "delivery": "published-image",
+      "validation": "manifest+architecture-images+configured-CI",
+      "publisher_run_id": "37410095400",
+      "channel": "stable"
+    }
+  }
+}
