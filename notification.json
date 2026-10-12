@@ -7,11 +7,11 @@
       "name": "Woow Cloudflared",
       "version": "1.0.4",
       "repository": "WOOWTECH/Woow_ha_cloudflare_tunnel_webgui",
-      "source_sha": "53776ea3536547a2da7309fa6f6c90dc7610a825",
+      "source_sha": "2c28a8c960fd984e15ee702f85e3706ed64f632b",
       "source_path": "cloudflared",
       "config_file": "config.yaml",
       "config_sha256": "sha256:ac8797cf6f9a1dbf68e78b163dbe51744734cc411f6c8ae8983c2e728cfb25a4",
-      "archive_sha256": "sha256:be0bc0f76a08cc2f4d5b8218fb8f1d59f1aeab1ae4adfc577f5024a64fc30ea4",
+      "archive_sha256": "sha256:ec4e7b9eedd18530519849d23750cba016789ac53f0e3e341c9fa20ea81648e0",
       "context_fingerprint": "sha256:fe442b9db0b048d5c225226f086d5dfa25b3d3f9ff0afcba6c2811691dd00757",
       "material_fingerprint": "sha256:8df170e7c4b5bca6a8025a598bcd5c569ae7619c4fa2e5bf2232b1720319d9ee",
       "architectures": [
@@ -90,7 +90,7 @@
       },
       "delivery": "published-image",
       "validation": "manifest+architecture-images+configured-CI",
-      "publisher_run_id": "37410095400",
+      "publisher_run_id": "38209680211",
       "channel": "stable"
     }
   }
