@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Unbreak the image build again. Alpine rebuilt `yq-go` from `4.53.3-r1` to
+  `4.53.3-r2`, so the pinned `apk add yq-go=4.53.3-r1` could not resolve. The
+  Alpine 3.24 community repo now carries `4.53.3-r2` on both `x86_64` and
+  `aarch64`; the pin matches it. No version bump: this ships with the next one.
+
 ## 1.0.4 — 2026-09-08
 
 ### Fixed
