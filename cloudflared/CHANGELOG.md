@@ -6,6 +6,7 @@
 - Keep remote tunnel tokens and custom run parameter values out of startup DEBUG/TRACE logs while passing them unchanged to cloudflared.
 - Avoid logging generated tunnel credentials and ingress configuration during local tunnel setup.
 - Add a real startup-script regression that demonstrates the leak on 1.0.4 and verifies the fix.
+- Pin `yq-go` to Alpine 3.24’s current `4.53.3-r2` package so both architecture builds can complete.
 
 ## 1.0.4 — 2026-09-08
 
