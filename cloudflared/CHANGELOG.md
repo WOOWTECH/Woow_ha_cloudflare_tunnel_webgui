@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.5 — 2026-10-21
+
+### Fixed
+- Keep remote tunnel tokens and custom run parameter values out of startup DEBUG/TRACE logs while passing them unchanged to cloudflared.
+- Avoid logging generated tunnel credentials and ingress configuration during local tunnel setup.
+- Add a real startup-script regression that demonstrates the leak on 1.0.4 and verifies the fix.
+
 ## 1.0.4 — 2026-09-08
 
 ### Fixed
