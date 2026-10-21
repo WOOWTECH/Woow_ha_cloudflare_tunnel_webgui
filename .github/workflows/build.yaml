@@ -8,9 +8,8 @@ on:
       - main
     paths:
       - "cloudflared/**"
+  # PRs run unfiltered so the ruleset's required checks always report (release-gating #88).
   pull_request:
-    paths:
-      - "cloudflared/**"
   workflow_dispatch:
 
 jobs:
