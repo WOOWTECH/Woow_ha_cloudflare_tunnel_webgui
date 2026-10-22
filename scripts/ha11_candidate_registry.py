@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Candidate-only registry preflight. Secrets stay in memory, never diagnostics."""
 import base64,hashlib,json,os,re,sys,urllib.request,urllib.error,urllib.parse
-SHA='e1e14e9ff7d96170b4ea6c266edc01a6746781cf'
+SHA='0259b577ef16591d21dd2d93655e68ba21ad1ff0'
 REPO='woowtech/amd64-addon-cloudflared-webgui'
-TAG='1.0.5-ha11.20261023.e1e14e9ff7d9'
-EXPECTED={'/etc/s6-overlay/s6-rc.d/prepare/run.sh': '85ca7807119e0629797a50f91fcf8b09f69049bb2f9662dbf6b50fd792fbb694', '/opt/webgui/backend/main.py': 'ecca51ea1bd6e2126256e60a0ed3eb67b7d06d9a334c5aed4ac97b470a45663a', '/opt/webgui/backend/models.py': 'f655f5e0a88276e052f1e137bbe2b178808af8caf6a34fc8933ec1f7c4993693', '/opt/webgui/backend/supervisor.py': '5dcdff87f0a1e8ad0af368263d8d24c54924318468009c5ac9537898dcaffc64', '/run.sh': 'eb8fcaedb214e39b58918c7036ef0e5ce139dc68b1e576d8331339778cd12c77', '/opt/webgui/backend/metrics.py': '4eaf5dc18928588bb7e78b80757af9d41b990ef7162033d5b97f9c90cd5f9999'}
+TAG='1.0.5-ops03.20261023.0259b577ef16'
+EXPECTED={'/run.sh': '9dde80b64ccb7dac2361154355eac66609d7d0c053df2c27943da4e9f744be74', '/etc/s6-overlay/s6-rc.d/prepare/run.sh': 'c94774b2001806fa8f1b68b66c141afec80f4a6e659e2e32dfeec5e5e722f347', '/etc/s6-overlay/s6-rc.d/webgui/run': '0d2431fc0ae95c551c9945aa162537e8a48769fd6f1275aeff5052a0c1ed0a36', '/usr/local/bin/cloudflared-credential-guard': 'b8c09f39941dc292b4b871b51ecae5e80a3765cdf56a5cdfc0124dc3b4b6ebb9', '/opt/webgui/backend/main.py': 'ecca51ea1bd6e2126256e60a0ed3eb67b7d06d9a334c5aed4ac97b470a45663a', '/opt/webgui/backend/metrics.py': '4eaf5dc18928588bb7e78b80757af9d41b990ef7162033d5b97f9c90cd5f9999', '/opt/webgui/backend/models.py': 'f655f5e0a88276e052f1e137bbe2b178808af8caf6a34fc8933ec1f7c4993693', '/opt/webgui/backend/supervisor.py': '5dcdff87f0a1e8ad0af368263d8d24c54924318468009c5ac9537898dcaffc64'}
 ACCEPT='application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.index.v1+json'
 def fail(code):
  print(json.dumps({'passed':False,'error_code':code}));raise SystemExit(1)

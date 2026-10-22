@@ -3,13 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish only the fixed unique HA11 candidate tag
+        description: Publish only the fixed unique OPS03 candidate tag
         type: boolean
         default: false
 permissions:
   contents: read
 concurrency:
-  group: ha11-candidate-e1e14e9-20261023
+  group: ops03-candidate-0259b577-20261023
   cancel-in-progress: false
 jobs:
   candidate:
@@ -19,8 +19,8 @@ jobs:
       contents: read
       packages: write
     env:
-      SOURCE_SHA: e1e14e9ff7d96170b4ea6c266edc01a6746781cf
-      CANDIDATE_VERSION: 1.0.5-ha11.20261023.e1e14e9ff7d9
+      SOURCE_SHA: 0259b577ef16591d21dd2d93655e68ba21ad1ff0
+      CANDIDATE_VERSION: 1.0.5-ops03.20261023.0259b577ef16
       CANDIDATE_IMAGE: ghcr.io/woowtech/amd64-addon-cloudflared-webgui
       GOMAXPROCS: '2'
     steps:
@@ -32,7 +32,7 @@ jobs:
       - name: Checkout exact candidate product source
         uses: actions/checkout@v4
         with:
-          ref: e1e14e9ff7d96170b4ea6c266edc01a6746781cf
+          ref: 0259b577ef16591d21dd2d93655e68ba21ad1ff0
           path: source
           persist-credentials: false
       - name: Verify source and build only one candidate tag
@@ -69,7 +69,7 @@ jobs:
           docker run --rm --network=none --cpus=1 --memory=256m --read-only \
             --cap-drop=ALL --security-opt=no-new-privileges --entrypoint=/bin/sh \
             "$CANDIDATE_IMAGE:$CANDIDATE_VERSION" -c \
-            'sha256sum /run.sh /etc/s6-overlay/s6-rc.d/prepare/run.sh /opt/webgui/backend/main.py /opt/webgui/backend/metrics.py /opt/webgui/backend/models.py /opt/webgui/backend/supervisor.py' \
+            'sha256sum /run.sh /etc/s6-overlay/s6-rc.d/prepare/run.sh /opt/webgui/backend/main.py /opt/webgui/backend/metrics.py /opt/webgui/backend/models.py /opt/webgui/backend/supervisor.py /usr/local/bin/cloudflared-credential-guard /etc/s6-overlay/s6-rc.d/webgui/run' \
             > receipt/runtime-files.sha256
           python3 tooling/scripts/ha11_candidate_registry.py verify-files receipt/runtime-files.sha256
       - name: Refuse existing or ambiguously inaccessible candidate tag
@@ -100,7 +100,7 @@ jobs:
       - name: Export reviewable receipts
         uses: actions/upload-artifact@v4
         with:
-          name: ha11-e1e14e9-publication-receipt
+          name: ops03-0259b577-publication-receipt
           path: receipt/
           retention-days: 30
 # No push/release/workflow_run trigger, latest/stable tag, git tag, Release job,
