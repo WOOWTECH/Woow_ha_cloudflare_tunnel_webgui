@@ -17,6 +17,7 @@ class TestSecretLogging(unittest.TestCase):
             root = Path(directory)
             stub = root / "bashio.sh"
             stub.write_text('''
+cloudflared-credential-guard() { return 0; }
 bashio::log.log() { printf '[%s] %s\\n' "$1" "$2"; }
 bashio::log.trace() { bashio::log.log TRACE "$*"; }
 bashio::log.debug() { bashio::log.log DEBUG "$*"; }

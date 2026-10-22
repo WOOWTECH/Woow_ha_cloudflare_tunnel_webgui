@@ -1,4 +1,7 @@
 #!/command/with-contenv bashio
+# Protect restored credentials before any config read, network call or UI.
+cloudflared-credential-guard || exit 1
+umask 077
 # shellcheck shell=bash
 # ==============================================================================
 # Home Assistant App (Add-on): Cloudflared

@@ -1,4 +1,7 @@
 #!/command/with-contenv bashio
+# Protect restored credentials before any config read, network call or UI.
+cloudflared-credential-guard || exit 1
+umask 077
 # shellcheck shell=bash
 # ==============================================================================
 # Home Assistant App (Add-on): Cloudflared
@@ -229,6 +232,7 @@ createCertificate() {
 
     mv /root/.cloudflared/cert.pem "${data_path}/cert.pem" || bashio::exit.nok "Failed to move auth file"
 
+    cloudflared-credential-guard || exit 1
     hasCertificate || bashio::exit.nok "Failed to create certificate"
 }
 
@@ -284,6 +288,7 @@ createTunnel() {
 
     bashio::log.debug "Created new tunnel credentials file (contents withheld)"
 
+    cloudflared-credential-guard || exit 1
     hasTunnel || bashio::exit.nok "Failed to create tunnel"
 }
 

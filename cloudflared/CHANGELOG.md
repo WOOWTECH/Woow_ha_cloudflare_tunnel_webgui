@@ -3,6 +3,7 @@
 ## 1.0.5 — pending release
 
 ### Security / migration (HA11 candidate, not released)
+- Protect only `/data/cert.pem` and `/data/tunnel.json` before prepare, tunnel and GUI startup and after credential creation. Normalize these files to runtime owner and mode 0600; reject symlinks, hardlinks and non-regular files, and fail startup closed if protection fails. Creation uses umask 077. Other stored files are untouched. This mitigates restored credential exposure; it does not repair Supervisor backup metadata preservation. Linked credentials must be replaced with private regular copies. Rollback removes this guard and can reintroduce restored 0644 exposure.
 - Do not log arbitrary rejected request paths or custom methods; keep peer and allow-list diagnostics.
 - Bind cloudflared metrics and profiling endpoints to 127.0.0.1:36500. Breaking for installations that explicitly mapped host port 36500: remote scraping no longer works. Remove that port mapping and use the authenticated Ingress health status. Full remote Prometheus scraping requires a separately reviewed authenticated proxy; none is provided by this candidate. Options/schema and stored data are unchanged.
 - Rollback uses the previous immutable image and previous port mapping; doing so reopens the former metrics/profile interface exposure.

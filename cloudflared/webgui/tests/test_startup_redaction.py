@@ -12,6 +12,7 @@ import pytest
 ROOT = Path(os.environ.get("HA_TEST_ROOTFS", Path(__file__).resolve().parents[2] / "rootfs"))
 MARKER = "SYNTHETIC_PRIVATE_TOKEN_123456789"
 STUB = r'''
+cloudflared-credential-guard() { return 0; }
 __BASHIO_LOG_LEVEL_TRACE=0
 __BASHIO_EXIT_OK=0
 bashio::log.log() { printf '%s\n' "$*" >&2; }
