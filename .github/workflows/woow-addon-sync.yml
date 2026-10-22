@@ -3,6 +3,10 @@ name: WOOW addon source notification
   push:
     branches:
     - main
+    paths-ignore:
+    - .github/workflows/ha11-candidate.yml
+    - scripts/ha11_candidate_registry.py
+    - .github/workflows/woow-addon-sync.yml
   workflow_dispatch: {}
   schedule:
   - cron: 23 */6 * * *
