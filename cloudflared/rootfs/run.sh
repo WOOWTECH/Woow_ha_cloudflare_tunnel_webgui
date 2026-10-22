@@ -48,7 +48,7 @@ fi
 
 # Set common cloudflared tunnel options
 options+=(--no-autoupdate)
-options+=(--metrics="0.0.0.0:36500")
+options+=(--metrics="127.0.0.1:36500")
 
 # Check for post_quantum option
 if bashio::config.true 'post_quantum'; then

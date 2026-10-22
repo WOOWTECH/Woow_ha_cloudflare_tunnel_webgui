@@ -48,7 +48,8 @@ async def validation_error(request: Request, exc: RequestValidationError):
 async def ingress_only(request: Request, call_next):
     client = request.client.host if request.client else ""
     if not guard.allows(client):
-        guard.reject(client, f"{request.method} {request.url.path}")
+        # Paths and custom HTTP methods may contain credentials.
+        guard.reject(client, "HTTP request")
         return JSONResponse(
             {"detail": "Access is only allowed through Home Assistant Ingress"},
             status_code=403,

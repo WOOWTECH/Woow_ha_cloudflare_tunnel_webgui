@@ -2,6 +2,11 @@
 
 ## 1.0.5 — pending release
 
+### Security / migration (HA11 candidate, not released)
+- Do not log arbitrary rejected request paths or custom methods; keep peer and allow-list diagnostics.
+- Bind cloudflared metrics and profiling endpoints to 127.0.0.1:36500. Breaking for installations that explicitly mapped host port 36500: remote scraping no longer works. Remove that port mapping and use the authenticated Ingress health status. Full remote Prometheus scraping requires a separately reviewed authenticated proxy; none is provided by this candidate. Options/schema and stored data are unchanged.
+- Rollback uses the previous immutable image and previous port mapping; doing so reopens the former metrics/profile interface exposure.
+
 ### Fixed
 - Keep tunnel tokens, credential JSON, ingress configuration and custom parameter values out of startup DEBUG/TRACE logs while preserving execution arguments.
 - Sanitize validation and Supervisor errors in HTTP, health/restart errors and GUI responses; retain field location, type and HTTP status without submitted values or upstream secret-bearing prose.
