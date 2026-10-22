@@ -1,4 +1,7 @@
 #!/command/with-contenv bashio
+# Protect restored credentials before any config read, network call or UI.
+cloudflared-credential-guard || exit 1
+umask 077
 # shellcheck shell=bash
 # ==============================================================================
 # Home Assistant App (Add-on): Cloudflared
@@ -6,6 +9,13 @@
 # Configures the Cloudflare Tunnel and creates the needed DNS entry under the
 # given hostname(s)
 # ==============================================================================
+
+# Bashio's default trace helper logs every argument, including config values.
+# Retain the static event name while discarding all additional arguments.
+bashio::log.trace() {
+    local message="${1:-}"
+    bashio::log.log "${__BASHIO_LOG_LEVEL_TRACE}" "${message}"
+}
 
 # ------------------------------------------------------------------------------
 # Validates configuration and sets global variables used in the script
@@ -222,6 +232,7 @@ createCertificate() {
 
     mv /root/.cloudflared/cert.pem "${data_path}/cert.pem" || bashio::exit.nok "Failed to move auth file"
 
+    cloudflared-credential-guard || exit 1
     hasCertificate || bashio::exit.nok "Failed to create certificate"
 }
 
@@ -275,8 +286,9 @@ createTunnel() {
     Please check the Cloudflare Zero Trust Dashboard for an existing tunnel with the name ${tunnel_name} and delete it:
     Visit https://one.dash.cloudflare.com, then click on Networks -> Tunnels"
 
-    bashio::log.debug "Created new tunnel: $(cat "${data_path}"/tunnel.json)"
+    bashio::log.debug "Created new tunnel credentials file (contents withheld)"
 
+    cloudflared-credential-guard || exit 1
     hasTunnel || bashio::exit.nok "Failed to create tunnel"
 }
 
@@ -378,20 +390,29 @@ setCloudflaredLogLevel() {
 
     # Set cloudflared log to "info" as default
     CLOUDFLARED_LOG="info"
+    CLOUDFLARED_LOG_DISPLAY="info"
 
     # Check if user wishes to change log severity
     if bashio::config.has_value 'run_parameters'; then
         bashio::log.trace "bashio::config.has_value 'run_parameters'"
         for run_parameter in $(bashio::config 'run_parameters'); do
-            bashio::log.trace "Checking run_parameter: ${run_parameter}"
+            bashio::log.trace "Checking run_parameter"
             if [[ $run_parameter == --loglevel=* ]]; then
                 CLOUDFLARED_LOG=${run_parameter#*=}
-                bashio::log.trace "Setting CLOUDFLARED_LOG to: ${run_parameter#*=}"
+                case "${CLOUDFLARED_LOG}" in
+                    debug|info|warn|error|fatal)
+                        CLOUDFLARED_LOG_DISPLAY="${CLOUDFLARED_LOG}"
+                        ;;
+                    *)
+                        CLOUDFLARED_LOG_DISPLAY="custom"
+                        ;;
+                esac
+                bashio::log.trace "Found a Cloudflared log level option"
             fi
         done
     fi
 
-    bashio::log.debug "Cloudflared log level set to \"${CLOUDFLARED_LOG}\""
+    bashio::log.debug "Cloudflared log level set to \"${CLOUDFLARED_LOG_DISPLAY}\""
 
 }
 

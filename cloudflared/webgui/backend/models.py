@@ -53,7 +53,7 @@ def normalize_tunnel_token(raw: str) -> str:
     """
     candidate_match = TOKEN_RE.search(raw)
     if not candidate_match:
-        raise ValueError(f"'{raw[:40]}...' {TOKEN_ERROR}")
+        raise ValueError(f"The pasted value {TOKEN_ERROR}")
     candidate = candidate_match.group(0)
     try:
         padded = candidate + "=" * (-len(candidate) % 4)
@@ -87,7 +87,7 @@ class AdditionalHost(BaseModel):
         if not v:
             raise ValueError("'hostname' in additional_hosts must not be empty")
         if not VALID_HOSTNAME_RE.match(v):
-            raise ValueError(f"'{v}' {HOSTNAME_ERROR}")
+            raise ValueError(f"The supplied hostname {HOSTNAME_ERROR}")
         return v
 
     @field_validator("service")
@@ -123,7 +123,7 @@ class AddonOptions(BaseModel):
     def _external_hostname(cls, v: str) -> str:
         v = v.strip()
         if v and not VALID_HOSTNAME_RE.match(v):
-            raise ValueError(f"'{v}' {HOSTNAME_ERROR}")
+            raise ValueError(f"The supplied hostname {HOSTNAME_ERROR}")
         return v
 
     @field_validator("tunnel_token")
@@ -149,7 +149,7 @@ class AddonOptions(BaseModel):
                 continue
             if not RUN_PARAMETER_RE.match(param):
                 raise ValueError(
-                    f"'{param}' is not an allowed run parameter. Allowed flags: "
+                    "Not an allowed run parameter. Allowed flags: "
                     "--edge-bind-address, --edge-ip-version, --grace-period, "
                     "--ha-connections, --logfile, --loglevel, --pidfile, "
                     "--protocol, --region, --retries, --tag (format: --flag=value)"

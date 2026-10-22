@@ -29,6 +29,19 @@ jobs:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v4
 
+      - name: Set up Python for disclosure regressions
+        if: matrix.arch == 'amd64'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Run response and startup disclosure regressions
+        if: matrix.arch == 'amd64'
+        working-directory: cloudflared/webgui
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m pytest -q tests/test_error_redaction.py tests/test_startup_redaction.py ../tests/test_secret_logging.py ../tests/test_credential_permissions.py
+
       - name: 🏗 Set up QEMU
         uses: docker/setup-qemu-action@v3
 

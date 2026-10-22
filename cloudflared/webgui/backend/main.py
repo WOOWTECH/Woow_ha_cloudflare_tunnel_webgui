@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -33,11 +34,22 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Woow Cloudflared", lifespan=lifespan)
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    # FastAPI's default error includes input (possibly the entire options
+    # dict) and ctx. The GUI only consumes loc/msg; omit private payloads.
+    return JSONResponse(status_code=422, content={"detail": [
+        {"loc": list(error["loc"]), "type": error["type"], "msg": error["msg"]}
+        for error in exc.errors()
+    ]})
+
+
 @app.middleware("http")
 async def ingress_only(request: Request, call_next):
     client = request.client.host if request.client else ""
     if not guard.allows(client):
-        guard.reject(client, f"{request.method} {request.url.path}")
+        # Paths and custom HTTP methods may contain credentials.
+        guard.reject(client, "HTTP request")
         return JSONResponse(
             {"detail": "Access is only allowed through Home Assistant Ingress"},
             status_code=403,

@@ -1,4 +1,7 @@
 #!/command/with-contenv bashio
+# Protect restored credentials before any config read, network call or UI.
+cloudflared-credential-guard || exit 1
+umask 077
 # shellcheck shell=bash
 # ==============================================================================
 # Home Assistant App (Add-on): Cloudflared
@@ -7,6 +10,13 @@
 declare config_file="/tmp/config.json"
 declare certificate="/data/cert.pem"
 declare -a options
+
+# Bashio's default trace helper logs every argument, including config values.
+# Retain the static event name while discarding all additional arguments.
+bashio::log.trace() {
+    local message="${1:-}"
+    bashio::log.log "${__BASHIO_LOG_LEVEL_TRACE}" "${message}"
+}
 
 # WOOWTECH Web GUI patch: when the add-on is completely unconfigured the
 # prepare script skips the tunnel setup (instead of exiting fatally like
@@ -41,7 +51,7 @@ fi
 
 # Set common cloudflared tunnel options
 options+=(--no-autoupdate)
-options+=(--metrics="0.0.0.0:36500")
+options+=(--metrics="127.0.0.1:36500")
 
 # Check for post_quantum option
 if bashio::config.true 'post_quantum'; then
@@ -53,7 +63,8 @@ fi
 if bashio::config.has_value 'run_parameters'; then
     bashio::log.trace "bashio::config.has_value 'run_parameters'"
     for run_parameter in $(bashio::config 'run_parameters'); do
-        bashio::log.trace "Adding run_parameter: ${run_parameter}"
+        # Run parameters are user-controlled and may contain sensitive values.
+        bashio::log.trace "Adding run_parameter argument"
         options+=("${run_parameter}")
     done
 fi
@@ -61,14 +72,32 @@ fi
 # Check if we run local or remote managed tunnel and set related options
 if bashio::config.has_value 'tunnel_token'; then
     bashio::log.trace "bashio::config.has_value 'tunnel_token'"
+    tunnel_mode="remote"
     options+=(run --token="$(bashio::config 'tunnel_token')")
 else
+    tunnel_mode="local"
     bashio::log.debug "using ${config_file} config file"
     options+=(--origincert="${certificate}")
     options+=(--config="${config_file}")
     options+=(run "$(bashio::config 'tunnel_name')")
 fi
 
+# Keep command diagnostics useful without logging user-controlled argument values.
+# Only report protocol values from the supported, non-secret set.
+tunnel_protocol="auto"
+for ((option_index = 0; option_index < ${#options[@]}; option_index++)); do
+    case "${options[option_index]}" in
+        --protocol=auto|--protocol=http2|--protocol=quic)
+            tunnel_protocol="${options[option_index]#*=}"
+            ;;
+        --protocol)
+            case "${options[option_index + 1]:-}" in
+                auto|http2|quic) tunnel_protocol="${options[option_index + 1]}" ;;
+            esac
+            ;;
+    esac
+done
+
 bashio::log.info "Connecting Cloudflare Tunnel..."
-bashio::log.debug "cloudflared tunnel ${options[*]}"
+bashio::log.debug "cloudflared tunnel starting (mode=${tunnel_mode}, protocol=${tunnel_protocol}, option_count=${#options[@]})"
 exec cloudflared tunnel "${options[@]}"
