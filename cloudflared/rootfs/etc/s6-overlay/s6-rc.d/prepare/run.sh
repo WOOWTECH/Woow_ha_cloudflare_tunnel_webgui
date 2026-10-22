@@ -7,6 +7,13 @@
 # given hostname(s)
 # ==============================================================================
 
+# Bashio's default trace helper logs every argument, including config values.
+# Retain the static event name while discarding all additional arguments.
+bashio::log.trace() {
+    local message="${1:-}"
+    bashio::log.log "${__BASHIO_LOG_LEVEL_TRACE}" "${message}"
+}
+
 # ------------------------------------------------------------------------------
 # Validates configuration and sets global variables used in the script
 # ------------------------------------------------------------------------------
@@ -56,14 +63,14 @@ validateConfigAndSetVars() {
         local hostname
         local service
         for additional_host in "${additional_hosts[@]}"; do
-            bashio::log.debug "Checking additional host..."
+            bashio::log.debug "Checking host ${additional_host}..."
             hostname=$(bashio::jq "${additional_host}" ".hostname")
             service=$(bashio::jq "${additional_host}" ".service")
             if bashio::var.is_empty "${hostname}" && bashio::var.is_empty "${service}"; then
                 bashio::exit.nok "'hostname' and 'service' in 'additional_hosts' are empty, please enter a valid String"
             fi
             if bashio::var.is_empty "${hostname}"; then
-                bashio::exit.nok "'hostname' in 'additional_hosts' is empty, please enter a valid String"
+                bashio::exit.nok "'hostname' in 'additional_hosts' for service ${service} is empty, please enter a valid String"
             fi
             # Check if hostname of 'additional_host' includes a valid hostname
             if ! [[ ${hostname} =~ ${validHostnameRegex} ]]; then
@@ -275,7 +282,7 @@ createTunnel() {
     Please check the Cloudflare Zero Trust Dashboard for an existing tunnel with the name ${tunnel_name} and delete it:
     Visit https://one.dash.cloudflare.com, then click on Networks -> Tunnels"
 
-    bashio::log.debug "Created new tunnel credentials file"
+    bashio::log.debug "Created new tunnel credentials file (contents withheld)"
 
     hasTunnel || bashio::exit.nok "Failed to create tunnel"
 }
@@ -340,11 +347,11 @@ createConfig() {
 
     # Validate config using cloudflared
     bashio::log.info "Validating config file..."
-    bashio::log.debug "Validating created config file"
+    bashio::log.debug "Validating created config file: $(bashio::jq "${default_config}" ".")"
     cloudflared tunnel --config="${default_config}" --loglevel "${CLOUDFLARED_LOG}" ingress validate ||
         bashio::exit.nok "Validation of Config failed, please check the logs above."
 
-    bashio::log.debug "Successfully created config file"
+    bashio::log.debug "Sucessfully created config file: $(bashio::jq "${default_config}" ".")"
 }
 
 # ------------------------------------------------------------------------------
@@ -378,20 +385,29 @@ setCloudflaredLogLevel() {
 
     # Set cloudflared log to "info" as default
     CLOUDFLARED_LOG="info"
+    CLOUDFLARED_LOG_DISPLAY="info"
 
     # Check if user wishes to change log severity
     if bashio::config.has_value 'run_parameters'; then
         bashio::log.trace "bashio::config.has_value 'run_parameters'"
         for run_parameter in $(bashio::config 'run_parameters'); do
-            bashio::log.trace "Checking run_parameter argument"
+            bashio::log.trace "Checking run_parameter"
             if [[ $run_parameter == --loglevel=* ]]; then
                 CLOUDFLARED_LOG=${run_parameter#*=}
-                bashio::log.trace "Setting CLOUDFLARED_LOG from validated argument"
+                case "${CLOUDFLARED_LOG}" in
+                    debug|info|warn|error|fatal)
+                        CLOUDFLARED_LOG_DISPLAY="${CLOUDFLARED_LOG}"
+                        ;;
+                    *)
+                        CLOUDFLARED_LOG_DISPLAY="custom"
+                        ;;
+                esac
+                bashio::log.trace "Found a Cloudflared log level option"
             fi
         done
     fi
 
-    bashio::log.debug "Cloudflared log level configured"
+    bashio::log.debug "Cloudflared log level set to \"${CLOUDFLARED_LOG_DISPLAY}\""
 
 }
 
