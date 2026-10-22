@@ -1,12 +1,13 @@
 # Changelog
 
-## 1.0.5 — 2026-10-21
+## 1.0.5 — pending release
 
 ### Fixed
-- Keep remote tunnel tokens and custom run parameter values out of startup DEBUG/TRACE logs while passing them unchanged to cloudflared.
-- Avoid logging generated tunnel credentials and ingress configuration during local tunnel setup.
-- Add a real startup-script regression that demonstrates the leak on 1.0.4 and verifies the fix.
-- Pin `yq-go` to Alpine 3.24’s current `4.53.3-r2` package so both architecture builds can complete.
+- Keep tunnel tokens, credential JSON, ingress configuration and custom parameter values out of startup DEBUG/TRACE logs while preserving execution arguments.
+- Sanitize validation and Supervisor errors in HTTP, health/restart errors and GUI responses; retain field location, type and HTTP status without submitted values or upstream secret-bearing prose.
+- Add synthetic error and startup regression coverage.
+- Carry main's yq-go 4.53.3-r2 build pin for Alpine 3.24 on both architectures.
+
 
 ## 1.0.4 — 2026-09-08
 
