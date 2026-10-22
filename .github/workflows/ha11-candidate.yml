@@ -1,0 +1,107 @@
+name: HA11 Candidate Only
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish only the fixed unique HA11 candidate tag
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ha11-candidate-e1e14e9-20261023
+  cancel-in-progress: false
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    env:
+      SOURCE_SHA: e1e14e9ff7d96170b4ea6c266edc01a6746781cf
+      CANDIDATE_VERSION: 1.0.5-ha11.20261023.e1e14e9ff7d9
+      CANDIDATE_IMAGE: ghcr.io/woowtech/amd64-addon-cloudflared-webgui
+      GOMAXPROCS: '2'
+    steps:
+      - name: Checkout reviewed publication helpers
+        uses: actions/checkout@v4
+        with:
+          path: tooling
+          persist-credentials: false
+      - name: Checkout exact candidate product source
+        uses: actions/checkout@v4
+        with:
+          ref: e1e14e9ff7d96170b4ea6c266edc01a6746781cf
+          path: source
+          persist-credentials: false
+      - name: Verify source and build only one candidate tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+          mkdir -p receipt
+          git -C source archive "$SOURCE_SHA" | sha256sum > receipt/source-archive.sha256
+          docker pull --platform=linux/amd64 node:22-alpine
+          docker pull --platform=linux/amd64 ghcr.io/hassio-addons/base:21.0.1
+          docker image inspect node:22-alpine ghcr.io/hassio-addons/base:21.0.1 \
+            --format '{{index .RepoDigests 0}}' > receipt/base-digests.txt
+          python3 - <<'PYBUILD'
+          import pathlib,hashlib,json
+          source=pathlib.Path('source/cloudflared/Dockerfile').read_text()
+          refs=pathlib.Path('receipt/base-digests.txt').read_text().splitlines()
+          assert len(refs)==2 and all('@sha256:' in r for r in refs)
+          pinned=source.replace('node:22-alpine',refs[0]).replace('ghcr.io/hassio-addons/base:21.0.1',refs[1])
+          pathlib.Path('receipt/Dockerfile.pinned').write_text(pinned)
+          pathlib.Path('receipt/build-inputs.json').write_text(json.dumps({'source_dockerfile_sha256':hashlib.sha256(source.encode()).hexdigest(),'pinned_dockerfile_sha256':hashlib.sha256(pinned.encode()).hexdigest(),'base_digests':refs}))
+          PYBUILD
+          docker build -f receipt/Dockerfile.pinned --memory=2g --cpu-period=100000 --cpu-quota=200000 \
+            --platform=linux/amd64 --build-arg BUILD_ARCH=amd64 \
+            --build-arg BUILD_VERSION="$CANDIDATE_VERSION" \
+            --build-arg BUILD_REF="$SOURCE_SHA" \
+            --build-arg BUILD_REPOSITORY=WOOWTECH/Woow_ha_cloudflare_tunnel_webgui \
+            --build-arg BUILD_NAME='Woow Cloudflared HA11 candidate' \
+            --build-arg BUILD_DESCRIPTION='Isolated owned-slot acceptance candidate' \
+            --build-arg BUILD_DATE="$(git -C source show -s --format=%cI "$SOURCE_SHA")" \
+            -t "$CANDIDATE_IMAGE:$CANDIDATE_VERSION" source/cloudflared
+          docker image inspect "$CANDIDATE_IMAGE:$CANDIDATE_VERSION" \
+            --format '{{.Id}}' > receipt/image-config-id.txt
+          docker run --rm --network=none --cpus=1 --memory=256m --read-only \
+            --cap-drop=ALL --security-opt=no-new-privileges --entrypoint=/bin/sh \
+            "$CANDIDATE_IMAGE:$CANDIDATE_VERSION" -c \
+            'sha256sum /run.sh /etc/s6-overlay/s6-rc.d/prepare/run.sh /opt/webgui/backend/main.py /opt/webgui/backend/metrics.py /opt/webgui/backend/models.py /opt/webgui/backend/supervisor.py' \
+            > receipt/runtime-files.sha256
+          python3 tooling/scripts/ha11_candidate_registry.py verify-files receipt/runtime-files.sha256
+      - name: Refuse existing or ambiguously inaccessible candidate tag
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tooling/scripts/ha11_candidate_registry.py absent
+      - name: Login with this repository job token only
+        if: inputs.publish
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Publish exact unique tag and read back digest
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tooling/scripts/ha11_candidate_registry.py absent
+          docker push "$CANDIDATE_IMAGE:$CANDIDATE_VERSION"
+          python3 tooling/scripts/ha11_candidate_registry.py receipt > receipt/registry.json
+          DIGEST="$(python3 -c 'import json; print(json.load(open("receipt/registry.json"))["manifest_digest"])')"
+          docker pull "$CANDIDATE_IMAGE@$DIGEST"
+          test "$(docker image inspect "$CANDIDATE_IMAGE@$DIGEST" --format '{{.Id}}')" = "$(cat receipt/image-config-id.txt)"
+      - name: Export reviewable receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ha11-e1e14e9-publication-receipt
+          path: receipt/
+          retention-days: 30
+# No push/release/workflow_run trigger, latest/stable tag, git tag, Release job,
+# Store notification, package PAT, environment secret or official-addon action.
