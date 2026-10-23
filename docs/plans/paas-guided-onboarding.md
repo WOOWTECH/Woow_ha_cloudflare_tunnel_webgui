@@ -57,14 +57,32 @@ GUI 後端自有 `/api/paas/authorization`、`/authorization/status`、`/workspa
 
 見 `.scratch/paas-guided-onboarding/issues/`。先把會暴露 token 的執行路徑修好，再接入 OAuth 與訂閱導覽、服務安全預檢、綁定部署、分項驗證，最後處理換機/撤權/DNS 清理與 HAOS VM 實測。每票可單獨展示與回退。
 
-## 2026-10-24 實作與驗證紀錄
+## 2026-10-24 實作與驗證紀錄（初期）
 
 - 已在 HA add-on 隔離 worktree 完成工單 01–05 的本機實作：token-file／原始 log 收斂、PaaS 四步引導、device flow、工作區與服務讀取、Access 逐路由 fail-closed 預檢、claim/綁定/Supervisor 寫入/重啟與失敗補償。
 - 工單 06–08 部分完成：分項狀態、匿名 HTTPS 外部 probe（公開 DNS IP 釘選、拒絕私有位址、無轉址跟隨）、兩段式解除綁定、OAuth 撤銷、PaaS 清理深連結與 Local DNS 殘留警示。自動 DNS/Access 遠端清理仍需可核對 record ID 和 scoped API；目前不聲稱已刪。
 - 已加 10–12：專用 OAuth client、Portal 返回與受限開通 API、可查證的 DNS 清理。目前沿用 `woow-ha-smart-home` public client 的最小 scope，授權同意頁名稱尚待平台配合。
 - 已加 14：結構化錯誤、429 重試提示與逐狀態下一步導引；第一版先用繁中訊息與 Portal 直達連結。
 - 本機驗證：FastAPI 70 項後端測試、shell token 安全測試、Vue 正式編譯均通過。解除綁定的公開 API 測試覆蓋「按停止後立即釋放」與「新程序啟動但舊 Tunnel 還在跑」兩個拒絕路徑；`run_parameters` 測試覆蓋憑證與 metrics 覆蓋企圖。桌機 1440 px 與手機 390 px 畫面經隔離 mock 資料渲染，手機無水平溢出。
-- 只讀現場驗證：`paas-ws-fc59d8a2/svc-f1a3c502-haos` 於 2026-10-24 仍 Running/Ready，原 add-on 為 1.0.4 started；本 worktree 尚未安裝到 VM，也未動原 Tunnel token/訂閱。完整 E2E 需先有可安裝的新 add-on 版本與獨立測試訂閱。PaaS 私有 Git 主遠端被 Cloudflare Access 擋住，本地代理遠端亦無法抓取最新 develop，因此平台端 10–12 未在舊 checkout 上硬改。
+- 初期只讀現場驗證：`paas-ws-fc59d8a2/svc-f1a3c502-haos` Running/Ready，原 add-on 為 1.0.4 started。後續獨立安裝與試用訂閱的現場驗收結果見下節。PaaS 私有 Git 主遠端被 Cloudflare Access 擋住，本地代理遠端亦無法抓取最新 develop，因此平台端 10–12 未在舊 checkout 上硬改。
 - 完整 add-on 映像以 Podman 本機建置成功，容器內首頁與 PaaS 初始 API 回 200。更新 lockfile 後 `npm audit --omit=dev` 為 0 筆；剩餘 3 筆 moderate 都在 Tailwind 3 建置工具鏈，修補指引會升到不相容的 Tailwind 4。
-- HAOS VM 隔離驗證：只讀掛載本 worktree 的後端與編譯後前端到新容器，僅監聽 guest `127.0.0.1:18026`，沒有 Supervisor token。首頁及 PaaS 初始 API 回 200；真實 PaaS `/oauth2/device_authorization` 回 200、短碼與官方授權網址，API 沒有回傳 device code。測完已停止、刪除隔離容器與檔案；原 add-on 仍 1.0.4 started。此測試不等於已付款、已授權或已綁定的 E2E。
+- 初期 HAOS VM 隔離驗證：只讀掛載本 worktree 的後端與編譯後前端到新容器，僅監聽 guest `127.0.0.1:18026`，沒有 Supervisor token。首頁及 PaaS 初始 API 回 200；真實 PaaS `/oauth2/device_authorization` 回 200。這一步之後另以 Supervisor 安裝真正的測試 add-on，見下節。
 - GitHub 草稿 PR #6 的第一輪 amd64 與 aarch64 add-on build 檢查均通過；Release 工作因沒有版本升級而跳過。後續修補仍須由 CI 重新確認。
+
+## 2026-10-24 HAOS × PaaS × Cloudflare 現場驗收（最終）
+
+測試對象為工作區 5、`woowtech@designsmart.com.tw` 帳戶與上列 HAOS VM。以獨立的 7 天試用 Security Access **SA36**、訂閱 **435**、路由 **55**、`sa-gui-e2e-1024-122f4b.woowtech.io` 驗證；原正式 add-on `1b7b4ce7_cloudflared` 完全保留。測試版由真實 Supervisor 從 PR 原始碼建置並安裝為另一個本機 add-on `local_cloudflared_paas_e2e`（`1.0.4-e2e1`，手動啟動）。帳戶測試工作階段由 Odoo 伺服端建立；之後訂閱、路由和授權均呼叫公開 PaaS API。這不是人工輸入帳密的瀏覽器登入測試。
+
+| 階段 | 現場可觀察結果 |
+|---|---|
+| 試用與保護 | PaaS 建立 SA36／訂閱 435，狀態 `in_progress`、0 付款；路由 55 指向 HAOS 代理來源。Email OTP、單一帳戶 allow policy 發布完成；匿名外部訪問回 Cloudflare Access 登入 302。 |
+| 裝置授權 | 測試 add-on 申請短碼，以該帳戶在 PaaS 裝置授權 API 核准；add-on 回 `authorized`，前端 API 未暴露 `device_code` 或 token。工作區與 SA36 可讀，預檢 `ready=true`。 |
+| 綁定啟用 | 測試 add-on `connect` 透過 Supervisor 寫入選項並重啟；PaaS `binding_state=claimed`、1 個 connector；容器 Tunnel `running`。第二個 UID claim 得 409。 |
+| 保護與可達 | add-on 外部探測回 `login_required`／302；從測試來源暫時加一條僅限該來源 IP 的 bypass，外部網址回 200 Home Assistant HTML，證實 Cloudflare Tunnel 到來源端可達；立即恢復原 Email OTP allow policy，匿名再得 302。**未驗證收件者真的輸入 OTP 登入。** |
+| 安全檢查 | Tunnel token 檔為 0600，cloudflared 使用 `--token-file`；argv、Docker log 無明文 token，metrics 只在容器 loopback。現場發現解除後 idle 啟動留下舊 token 檔，新增 shell 回歸測試並修正，重建後以合成 token 檔實測自動刪除。另修正 Cloudflare team 登入網址的 302 原本被誤判為 `undetermined`，修後現場回 `login_required`。 |
+| 撤權與刪除 | 測試 add-on `disconnect` 後 PaaS binding 最終 `unbound`、connector 0；OAuth `revoke` 後受保護 API 回 401。由 PaaS 正式刪除 SA36；訂閱 435 `cancel`、發票 0；Provider 讀取 DNS／Access app／policies／Tunnel remote config 均 404，Tunnel 有 `deleted_at` 且 0 connections；公開網址無 DNS 回答。 |
+| 還原現場 | Supervisor 停止並卸載測試 add-on，清除測試 source／封存檔；測試容器及資料不在。原 add-on 仍為 1.0.4 `started`；原 SA20 詳細即時狀態為 `connected`、1 個 connector、4 條 edge connections。清單的連線摘要可能是舊值，此處以詳細頁即時欄位為準。 |
+
+現場運作的是候選版，不是正式發行版；GUI 的桌機／手機截圖使用隔離 mock 資料，沒有在 HA 登入瀏覽器中逐一點擊。付款、指定收件者實際收 OTP 並完成登入、以及正式版本升級不在這次試用驗收結論內。專用 CF Web GUI OAuth client 與在 GUI 內直接訂閱仍需平台 API 配合。Cloudflare 資源清理由 PaaS 正式刪除流程完成，GUI 本身只導向此流程。
+
+驗收收據保存在工作區私人目錄 `reports/aiot-secure-access-20261020/private/e2e-20261024/`，公開教學頁只引用已遮蔽的狀態。PR #6 最新修補的 GitHub amd64／aarch64 建置均通過；Release 因未升版本而跳過。
