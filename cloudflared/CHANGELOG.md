@@ -23,6 +23,9 @@
 - A PaaS binding is released only after the add-on restarts and its old
   cloudflared metrics listener has stopped; saving empty options alone is
   insufficient proof that the connector is gone.
+- Anonymous external checks recognize Cloudflare Access team-domain login
+  redirects, while lookalike domains and insecure redirects remain
+  undetermined. This was verified against a live protected test route.
 - Frontend lockfile updates eliminate production `npm audit` findings. Three
   moderate findings remain in the Tailwind 3 build-only toolchain; the
   suggested Tailwind 4 upgrade requires a separate compatibility pass.

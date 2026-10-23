@@ -49,6 +49,35 @@ class PublicOnlyResolver(aiohttp.abc.AbstractResolver):
         return None
 
 
+def classify_response(http_status: int, location: str, hostname: str, server: str) -> str:
+    """Describe an anonymous response; do not treat it as policy proof."""
+    target = urlparse(location)
+    redirect_host = (target.hostname or "").lower()
+    same_origin = (
+        (not target.netloc and not target.scheme)
+        or (target.scheme == "https" and redirect_host == hostname.lower())
+    )
+    team_login = (
+        target.scheme == "https"
+        and redirect_host.endswith(".cloudflareaccess.com")
+        and target.path.rstrip("/").lower()
+        == f"/cdn-cgi/access/login/{hostname}".lower()
+    )
+    if (
+        http_status in (301, 302, 303, 307, 308)
+        and server.lower() == "cloudflare"
+        and ((same_origin and target.path.startswith("/cdn-cgi/access/")) or team_login)
+    ):
+        return "login_required"
+    if http_status == 200:
+        return "public_response"
+    if http_status == 403:
+        return "blocked_or_protected"
+    if http_status >= 500:
+        return "origin_error"
+    return "undetermined"
+
+
 async def probe(hostname: str) -> dict:
     if not isinstance(hostname, str) or not HOSTNAME.fullmatch(hostname) or hostname.endswith(".local"):
         return {"hostname": hostname, "status": "blocked_private_address"}
@@ -60,23 +89,10 @@ async def probe(hostname: str) -> dict:
         connector = aiohttp.TCPConnector(resolver=resolver, use_dns_cache=False)
         async with aiohttp.ClientSession(connector=connector, trust_env=False, timeout=aiohttp.ClientTimeout(total=8)) as session:
             async with session.get(f"https://{hostname}/", allow_redirects=False) as response:
-                location = response.headers.get("Location", "")
-                target = urlparse(location)
-                access_login = (
-                    response.status in (301, 302, 303, 307, 308)
-                    and target.path.startswith("/cdn-cgi/access/")
-                    and (not target.netloc or target.netloc.lower() == hostname.lower())
+                status = classify_response(
+                    response.status, response.headers.get("Location", ""),
+                    hostname, response.headers.get("Server", ""),
                 )
-                if access_login:
-                    status = "login_required"
-                elif response.status == 200:
-                    status = "public_response"
-                elif response.status == 403:
-                    status = "blocked_or_protected"
-                elif response.status >= 500:
-                    status = "origin_error"
-                else:
-                    status = "undetermined"
                 return {"hostname": hostname, "status": status, "http_status": response.status}
     except PrivateAddressError:
         return {"hostname": hostname, "status": "blocked_private_address"}
