@@ -418,7 +418,7 @@ main() {
     # Run service with tunnel token without creating config
     if bashio::config.has_value 'tunnel_token'; then
         bashio::log.info "Using Cloudflare Remote Management Tunnel"
-        bashio::log.info "All app (add-on) configuration options except tunnel_token will be ignored."
+        bashio::log.info "Local route options are ignored in token mode; post_quantum, run_parameters and log_level still apply."
         bashio::exit.ok
     fi
 

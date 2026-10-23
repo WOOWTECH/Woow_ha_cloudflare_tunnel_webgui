@@ -21,8 +21,9 @@
           <p class="text-xs text-gray-400">
             Paste a tunnel token from the Cloudflare Zero Trust dashboard to
             use a remote-managed tunnel.
-            <span class="font-medium">When a token is set, all other options
-            below are ignored</span> (identical to the original add-on).
+            <span class="font-medium">When a token is set, local hostname and
+            route options are ignored.</span> Post-Quantum, Run Parameters and
+            Log Level still apply.
           </p>
           <TokenInput
             :masked-value="configStore.options?.tunnel_token_masked ?? ''"
