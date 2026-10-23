@@ -41,7 +41,7 @@ PaaS 服務若有 `ha.example.com` 和 `nas.example.com` 兩條路由，**兩條
 
 ## API / 權限 / 錯誤模型
 
-GUI 後端自有 `/api/paas/authorization`、`/authorization/status`、`/workspaces`、`/workspaces/{id}/accesses`、`/accesses/{id}/review`、`/accesses/{id}/connect`、`/connection`、`/disconnect`。所有端點仍由現有 Ingress 限制。`connect` 後端從 PaaS 重讀 detail 並驗證；前端的預檢結果不可當成啟動權。對外錯誤固定含 `code`、繁中 `message`、`next_action`，不包含 token、PaaS 回傳 body 或憑證。讀取 401 重新授權；403 沒有 workspace/owner 權限；409 既有綁定；429 尊重 Retry-After；5xx 明確標示無法確認且不部署。
+GUI 後端自有 `/api/paas/authorization`、`/authorization/status`、`/workspaces`、`/workspaces/{id}/accesses`、`/accesses/{id}/review`、`/accesses/{id}/connect`、`/connection/status`、`/disconnect`。所有端點仍由現有 Ingress 限制。`connect` 後端從 PaaS 重讀 detail 並驗證；前端的預檢結果不可當成啟動權。第一版回傳 FastAPI 的繁中 `detail`，不包含 token、PaaS 回傳 body 或憑證；401 提醒重新授權，403 說明權限不足，409 說明綁定衝突，5xx 標示無法確認且不部署。目標契約是固定 `code`、繁中 `message`、`next_action`，並對 429 尊重 Retry-After；列入後續工單 14，不把目前的簡單錯誤格式宣稱為已完成。
 
 `GET /api/security-access/workspaces`、`.../workspaces/{id}/accesses`、`.../accesses/{id}`、`.../status` 都是讀；`.../tunnel-token` 有 claim 副作用，即使是 GET 也只在最終「連結」按鈕之後呼叫。不得在畫面輪詢時碰它。
 
@@ -62,7 +62,9 @@ GUI 後端自有 `/api/paas/authorization`、`/authorization/status`、`/workspa
 - 已在 HA add-on 隔離 worktree 完成工單 01–05 的本機實作：token-file／原始 log 收斂、PaaS 四步引導、device flow、工作區與服務讀取、Access 逐路由 fail-closed 預檢、claim/綁定/Supervisor 寫入/重啟與失敗補償。
 - 工單 06–08 部分完成：分項狀態、匿名 HTTPS 外部 probe（公開 DNS IP 釘選、拒絕私有位址、無轉址跟隨）、兩段式解除綁定、OAuth 撤銷、PaaS 清理深連結與 Local DNS 殘留警示。自動 DNS/Access 遠端清理仍需可核對 record ID 和 scoped API；目前不聲稱已刪。
 - 已加 10–12：專用 OAuth client、Portal 返回與受限開通 API、可查證的 DNS 清理。目前沿用 `woow-ha-smart-home` public client 的最小 scope，授權同意頁名稱尚待平台配合。
-- 本機驗證：FastAPI 70 項後端測試、shell token 安全測試、Vue 正式編譯均通過；最新新增測試與頁面變更需再跑最終回歸。桌機 1440 px 與手機 390 px 畫面經隔離 mock 資料渲染，手機無水平溢出。
+- 已加 14：結構化錯誤、429 重試提示與逐狀態下一步導引；第一版先用繁中訊息與 Portal 直達連結。
+- 本機驗證：FastAPI 70 項後端測試、shell token 安全測試、Vue 正式編譯均通過。解除綁定的公開 API 測試覆蓋「按停止後立即釋放」與「新程序啟動但舊 Tunnel 還在跑」兩個拒絕路徑；`run_parameters` 測試覆蓋憑證與 metrics 覆蓋企圖。桌機 1440 px 與手機 390 px 畫面經隔離 mock 資料渲染，手機無水平溢出。
 - 只讀現場驗證：`paas-ws-fc59d8a2/svc-f1a3c502-haos` 於 2026-10-24 仍 Running/Ready，原 add-on 為 1.0.4 started；本 worktree 尚未安裝到 VM，也未動原 Tunnel token/訂閱。完整 E2E 需先有可安裝的新 add-on 版本與獨立測試訂閱。PaaS 私有 Git 主遠端被 Cloudflare Access 擋住，本地代理遠端亦無法抓取最新 develop，因此平台端 10–12 未在舊 checkout 上硬改。
 - 完整 add-on 映像以 Podman 本機建置成功，容器內首頁與 PaaS 初始 API 回 200。更新 lockfile 後 `npm audit --omit=dev` 為 0 筆；剩餘 3 筆 moderate 都在 Tailwind 3 建置工具鏈，修補指引會升到不相容的 Tailwind 4。
 - HAOS VM 隔離驗證：只讀掛載本 worktree 的後端與編譯後前端到新容器，僅監聽 guest `127.0.0.1:18026`，沒有 Supervisor token。首頁及 PaaS 初始 API 回 200；真實 PaaS `/oauth2/device_authorization` 回 200、短碼與官方授權網址，API 沒有回傳 device code。測完已停止、刪除隔離容器與檔案；原 add-on 仍 1.0.4 started。此測試不等於已付款、已授權或已綁定的 E2E。
+- GitHub 草稿 PR #6 的第一輪 amd64 與 aarch64 add-on build 檢查均通過；Release 工作因沒有版本升級而跳過。後續修補仍須由 CI 重新確認。

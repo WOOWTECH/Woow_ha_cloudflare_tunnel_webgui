@@ -20,10 +20,13 @@ bashio::log.debug() { echo "[DEBUG] $*"; }
 bashio::log.notice() { echo "[NOTICE] $*"; }
 bashio::log.warning() { echo "[WARNING] $*"; }
 bashio::log.error() { echo "[ERROR] $*"; }
-bashio::log.trace() { :; }
+bashio::log.trace() { echo "[TRACE] $*"; }
 bashio::config.true() { return 1; }
-bashio::config.has_value() { [[ "$1" == tunnel_token ]]; }
-bashio::config() { printf '%s' 'TEST_SECRET_DO_NOT_LOG'; }
+bashio::config.has_value() { [[ "$1" == tunnel_token || ( "$1" == run_parameters && -n "${RUN_PARAMS:-}" ) ]]; }
+bashio::config() {
+    if [[ "$1" == run_parameters ]]; then printf '%s' "$RUN_PARAMS";
+    else printf '%s' 'TEST_SECRET_DO_NOT_LOG'; fi
+}
 STUB
 
 export ARGV_RECORD="$work/argv"
@@ -36,4 +39,19 @@ rg -q -- '--metrics=127.0.0.1:36500' "$work/argv"
 test "$(cat "$work/token")" = 'TEST_SECRET_DO_NOT_LOG'
 test "$(stat -c %a "$work/token")" = 600
 ! rg -q 'TEST_SECRET_DO_NOT_LOG' "$work/argv" "$work/log"
+export RUN_PARAMS='--protocol quic'
+PATH="$work/bin:$PATH" bash -c 'source "$1"; source "$2"' _ "$work/bashio.sh" "$root/cloudflared/rootfs/run.sh" > "$work/log"
+rg -q -- '--protocol' "$work/argv"
+rg -q -- 'quic' "$work/argv"
+export RUN_PARAMS='--token=ADVERSARIAL_SECRET'
+if PATH="$work/bin:$PATH" bash -c 'source "$1"; source "$2"' _ "$work/bashio.sh" "$root/cloudflared/rootfs/run.sh" > "$work/log"; then
+    echo 'FAIL: an unsafe run parameter reached cloudflared' >&2
+    exit 1
+fi
+! rg -q 'ADVERSARIAL_SECRET' "$work/log" "$work/argv"
+export RUN_PARAMS='--metrics=0.0.0.0:36500'
+if PATH="$work/bin:$PATH" bash -c 'source "$1"; source "$2"' _ "$work/bashio.sh" "$root/cloudflared/rootfs/run.sh" > "$work/log"; then
+    echo 'FAIL: run_parameters opened the metrics listener publicly' >&2
+    exit 1
+fi
 echo 'PASS: token is confined to a 0600 file; argv and raw log are clean; metrics use loopback'

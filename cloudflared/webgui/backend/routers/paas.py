@@ -30,6 +30,7 @@ SCOPES = "workspace:read security-access:read security-access:tunnel"
 DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code"
 _pending: dict = {}
 _connect_lock = asyncio.Lock()
+_PROCESS_RUN_ID = str(uuid.uuid4())
 
 
 def _api_base() -> str:
@@ -446,6 +447,9 @@ async def disconnect(background: BackgroundTasks) -> dict:
         try:
             options = await supervisor.get_options()
             state["release_pending"] = True
+            # Saving options does not stop the current cloudflared process.
+            # A release is safe only after this add-on process has restarted.
+            state["stop_requested_by"] = _PROCESS_RUN_ID
             _save_state(state)
             # Clearing every local route prevents an old Local config from
             # starting a different public tunnel during the restart.
@@ -475,6 +479,11 @@ async def finish_disconnect() -> dict:
             raise HTTPException(502, "無法確認本機 Tunnel 已停止，稍後再重試解除綁定") from exc
         if options.get("tunnel_token"):
             raise HTTPException(409, "本機 Tunnel token 仍在設定中；先停止本機連線")
+        if state.get("stop_requested_by"):
+            if state["stop_requested_by"] == _PROCESS_RUN_ID:
+                raise HTTPException(409, "正在等待 add-on 重啟與 Tunnel 停止，請稍後重試")
+            if (await metrics.tunnel_status()).metrics_reachable:
+                raise HTTPException(409, "Tunnel 程序仍在執行，暫不解除遠端綁定")
         instance_uid = state.get("instance_uid")
         if not instance_uid:
             raise HTTPException(409, "缺少原始裝置 ID；請在 PaaS Portal 解除綁定")
@@ -483,6 +492,7 @@ async def finish_disconnect() -> dict:
         state.pop("connection", None)
         state.pop("release_pending", None)
         state.pop("pending_release_access_id", None)
+        state.pop("stop_requested_by", None)
         _save_state(state)
         return {"released": True}
 

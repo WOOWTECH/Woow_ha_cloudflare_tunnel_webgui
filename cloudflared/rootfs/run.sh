@@ -53,7 +53,12 @@ fi
 if bashio::config.has_value 'run_parameters'; then
     bashio::log.trace "bashio::config.has_value 'run_parameters'"
     for run_parameter in $(bashio::config 'run_parameters'); do
-        bashio::log.trace "Adding run_parameter: ${run_parameter}"
+        case "${run_parameter}" in
+            --token|--token=*|--token-file|--token-file=*|--metrics|--metrics=*)
+                bashio::log.error "Tunnel credentials and metrics listener cannot be overridden through run_parameters."
+                exit 1
+                ;;
+        esac
         options+=("${run_parameter}")
     done
 fi

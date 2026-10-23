@@ -17,6 +17,12 @@
   binds `127.0.0.1:36500` rather than all container interfaces. Anyone who
   scraped port 36500 from outside the add-on must switch to a local collector
   or the PaaS / GUI status API; the port number itself did not change.
+- `run_parameters` now rejects credential and metrics overrides (`--token`,
+  `--token-file`, `--metrics`) and no longer prints parameter values in trace
+  logs. Move an existing token override into the dedicated token field.
+- A PaaS binding is released only after the add-on restarts and its old
+  cloudflared metrics listener has stopped; saving empty options alone is
+  insufficient proof that the connector is gone.
 - Frontend lockfile updates eliminate production `npm audit` findings. Three
   moderate findings remain in the Tailwind 3 build-only toolchain; the
   suggested Tailwind 4 upgrade requires a separate compatibility pass.

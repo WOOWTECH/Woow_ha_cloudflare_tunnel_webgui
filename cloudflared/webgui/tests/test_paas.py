@@ -257,7 +257,10 @@ def test_unpaid_draft_subscription_blocks_claim(client, fake_paas, tmp_path):
     assert all("tunnel-token" not in path for path, _ in fake_paas)
 
 
-def test_disconnect_stops_local_token_before_releasing_binding(client, fake_paas, fake_supervisor, tmp_path):
+def test_disconnect_waits_for_restart_and_stopped_tunnel_before_release(client, fake_paas, fake_supervisor, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend.routers import paas
+
     (tmp_path / "link.json").write_text(json.dumps({
         "access_token": "PRIVATE_ACCESS_TOKEN",
         "refresh_token": "PRIVATE_REFRESH_TOKEN",
@@ -271,6 +274,24 @@ def test_disconnect_stops_local_token_before_releasing_binding(client, fake_paas
     assert "tunnel_token" not in fake_supervisor.options
     assert fake_supervisor.restarted is True
     assert all("tunnel-binding" not in path for path, _ in fake_paas)
+    # Supervisor has saved new options, but the old cloudflared process may
+    # still be serving traffic until the add-on actually restarts.
+    assert client.post("/api/paas/disconnect/finish").status_code == 409
+    assert all("tunnel-binding" not in path for path, _ in fake_paas)
+
+    monkeypatch.setattr(paas, "_PROCESS_RUN_ID", "next-addon-process")
+
+    async def running():
+        return SimpleNamespace(metrics_reachable=True)
+
+    monkeypatch.setattr(paas.metrics, "tunnel_status", running)
+    assert client.post("/api/paas/disconnect/finish").status_code == 409
+    assert all("tunnel-binding" not in path for path, _ in fake_paas)
+
+    async def stopped():
+        return SimpleNamespace(metrics_reachable=False)
+
+    monkeypatch.setattr(paas.metrics, "tunnel_status", stopped)
     finish = client.post("/api/paas/disconnect/finish")
     assert finish.status_code == 200
     assert finish.json()["released"] is True

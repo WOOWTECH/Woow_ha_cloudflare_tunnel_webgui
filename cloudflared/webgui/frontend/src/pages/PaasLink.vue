@@ -64,7 +64,7 @@
               <label class="text-sm font-medium text-gray-700">安全存取服務
                 <select v-model="accessId" :disabled="!workspaceId" class="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm disabled:bg-gray-100" @change="loadReview">
                   <option :value="null">請選擇服務</option>
-                  <option v-for="access in accesses" :key="access.id" :value="access.id">{{ access.name }} · {{ access.state }}</option>
+                  <option v-for="access in accesses" :key="access.id" :value="access.id">{{ access.name }} · {{ serviceLabel(access.state) }}</option>
                 </select>
               </label>
             </div>
@@ -74,7 +74,7 @@
                 <h3 class="font-semibold text-gray-900">{{ review.access.name }} · {{ review.ready ? '可以連結' : '需要完成設定' }}</h3>
                 <button class="text-xs font-semibold text-slate-700 underline" @click="loadReview">重新檢查</button>
               </div>
-              <p class="mt-2 text-xs text-gray-600">訂閱：{{ review.access.subscription?.plan_name || '尚未訂閱' }} · 服務：{{ review.access.state }} · 綁定：{{ review.access.binding_state }}</p>
+              <p class="mt-2 text-xs text-gray-600">訂閱：{{ review.access.subscription?.plan_name || '尚未訂閱' }}（{{ subscriptionLabel(review.access.subscription?.state) }}） · 服務：{{ serviceLabel(review.access.state) }} · 綁定：{{ bindingLabel(review.access.binding_state) }}</p>
               <div v-for="route in review.access.routes" :key="route.hostname" class="mt-3 rounded-lg bg-white px-4 py-3 text-sm text-gray-700">
                 <span :class="route.protected ? 'text-emerald-700' : 'text-red-700'" class="font-bold">{{ route.protected ? '✓' : '!' }}</span>
                 <span class="ml-2 font-medium">{{ route.hostname }}</span>
@@ -98,21 +98,21 @@
           <h2 class="text-lg font-semibold text-gray-900">連結並啟用</h2>
           <p class="mt-1 text-sm leading-6 text-gray-600">按下前系統會再檢查一次所有網址。通過後才取得 Tunnel 憑證，綁定這台裝置並重新啟動 add-on。</p>
           <button :disabled="!review?.ready || busy" class="mt-4 rounded-lg bg-cf-orange px-5 py-2.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-gray-300" @click="connect">{{ busy ? '處理中…' : '連結並啟用' }}</button>
-          <p v-if="bootstrap?.connection" class="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">✓ 已連結 {{ bootstrap.connection.name }}。add-on 重新啟動後可到 Dashboard 查看 Tunnel 狀態。</p>
-          <div v-if="bootstrap?.release_pending && !bootstrap.connection" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            上次連結失敗後，PaaS 綁定尚未確認解除。
+          <p v-if="bootstrap?.connection && !bootstrap.release_pending" class="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">✓ 已連結 {{ bootstrap.connection.name }}。add-on 重新啟動後可到 Dashboard 查看 Tunnel 狀態。</p>
+          <div v-if="bootstrap?.release_pending" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            遠端綁定尚未確認解除。若剛按下停止，請等 add-on 重啟及 Tunnel 停止；系統會自動重試。
             <button class="ml-2 font-semibold underline" @click="finishDisconnect">重新嘗試解除綁定</button>
           </div>
           <div v-if="bootstrap?.connection" class="mt-4 flex flex-wrap items-center gap-3">
             <button class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50" @click="loadStatus(false)">刷新連線狀態</button>
             <button class="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100" @click="checkExternal">測試外部網址</button>
             <button v-if="!bootstrap.release_pending" class="text-xs font-semibold text-red-700 underline" @click="disconnect">停止本機連線並解除綁定</button>
-            <button v-else class="text-xs font-semibold text-amber-800 underline" @click="finishDisconnect">本機已停止，重試遠端解除綁定</button>
+            <button v-else class="text-xs font-semibold text-amber-800 underline" @click="finishDisconnect">檢查並完成遠端解除綁定</button>
           </div>
           <div v-if="connectionStatus?.connected" class="mt-4 grid gap-3 sm:grid-cols-3">
-            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm"><p class="text-xs text-gray-500">訂閱</p><p class="mt-1 font-semibold text-gray-900">{{ connectionStatus.subscription?.state || '無法確認' }}</p></div>
+            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm"><p class="text-xs text-gray-500">訂閱</p><p class="mt-1 font-semibold text-gray-900">{{ subscriptionLabel(connectionStatus.subscription?.state) }}</p></div>
             <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm"><p class="text-xs text-gray-500">Access 保護</p><p class="mt-1 font-semibold" :class="connectionStatus.access_ready ? 'text-emerald-700' : 'text-red-700'">{{ connectionStatus.access_ready ? '設定已確認' : '需要修復' }}</p></div>
-            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm"><p class="text-xs text-gray-500">Tunnel</p><p class="mt-1 font-semibold text-gray-900">{{ connectionStatus.tunnel_status }}</p></div>
+            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm"><p class="text-xs text-gray-500">Tunnel</p><p class="mt-1 font-semibold text-gray-900">{{ tunnelLabel(connectionStatus.tunnel_status) }}</p></div>
             <p class="sm:col-span-3 text-xs text-gray-500">檢查時間：{{ new Date(connectionStatus.checked_at * 1000).toLocaleString() }}。{{ connectionStatus.external.length ? '匿名外部探測只確認回應，不代表指定使用者登入成功。' : '外部網址尚未獨立測試；Tunnel 在線不等於公開網址可用。' }}</p>
             <div v-for="result in connectionStatus.external" :key="result.hostname" class="rounded-xl border border-gray-200 bg-white p-4 text-sm">
               <p class="font-medium text-gray-900">{{ result.hostname }}</p>
@@ -141,7 +141,7 @@ interface Connection { access_id: number; workspace_id: number; name: string }
 interface Bootstrap { authorized: boolean; portal_url: string; connection: Connection | null; release_pending: boolean }
 interface Workspace { id: number; name: string; portal_url: string }
 interface Access { id: number; name: string; state: string }
-interface Review { ready: boolean; issues: string[]; access: { id: number; name: string; state: string; binding_state: string; subscription: { plan_name: string } | null; routes: { hostname: string; protected: boolean }[] }; portal_access_url: string; portal_routes_url: string }
+interface Review { ready: boolean; issues: string[]; access: { id: number; name: string; state: string; binding_state: string; subscription: { state: string; plan_name: string } | null; routes: { hostname: string; protected: boolean }[] }; portal_access_url: string; portal_routes_url: string }
 interface Authorization { user_code: string; verification_url: string; interval: number }
 interface ConnectionStatus { connected: boolean; subscription: { state: string } | null; access_ready: boolean; issues: string[]; tunnel_status: string; checked_at: number; external: { hostname: string; status: string; http_status?: number }[] }
 
@@ -161,6 +161,26 @@ const error = ref('')
 const message = ref('')
 let authTimer: ReturnType<typeof setTimeout> | undefined
 const workspacePortal = computed(() => workspaces.value.find((item) => item.id === workspaceId.value)?.portal_url || portalFallback)
+
+function label(value: string | undefined, names: Record<string, string>): string {
+  return value ? (names[value] || `待確認（${value}）`) : '無法確認'
+}
+
+function serviceLabel(value: string): string {
+  return label(value, { pending: '待建立', provisioning: '建立中', active: '已啟用', active_no_route: '已啟用，尚無網址', error: '設定錯誤', suspended: '已停權', deleting: '刪除中' })
+}
+
+function subscriptionLabel(value?: string): string {
+  return label(value, { in_progress: '有效', draft: '待開通', paused: '已暫停', closed: '已結束', cancel: '已取消' })
+}
+
+function bindingLabel(value: string): string {
+  return label(value, { unbound: '尚未綁定', claimed: '已綁定一台裝置', legacy: '舊版綁定，需檢查' })
+}
+
+function tunnelLabel(value: string): string {
+  return label(value, { running: '在線', starting: '啟動中', stopped: '未運行' })
+}
 
 async function loadBootstrap() {
   bootstrap.value = await api<Bootstrap>('api/paas/bootstrap')
