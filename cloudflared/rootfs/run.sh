@@ -41,7 +41,7 @@ fi
 
 # Set common cloudflared tunnel options
 options+=(--no-autoupdate)
-options+=(--metrics="0.0.0.0:36500")
+options+=(--metrics="127.0.0.1:36500")
 
 # Check for post_quantum option
 if bashio::config.true 'post_quantum'; then
@@ -61,8 +61,17 @@ fi
 # Check if we run local or remote managed tunnel and set related options
 if bashio::config.has_value 'tunnel_token'; then
     bashio::log.trace "bashio::config.has_value 'tunnel_token'"
-    options+=(run --token="$(bashio::config 'tunnel_token')")
+    # A command-line --token is visible in process listings, and the full
+    # options array may be logged. Persist only the file path in argv.
+    token_file="${CLOUDFLARED_TOKEN_FILE:-/data/tunnel-token}"
+    umask 077
+    temporary_token_file="$(mktemp "${token_file}.XXXXXX")"
+    printf '%s' "$(bashio::config 'tunnel_token')" > "${temporary_token_file}"
+    chmod 600 "${temporary_token_file}"
+    mv -f "${temporary_token_file}" "${token_file}"
+    options+=(run --token-file="${token_file}")
 else
+    rm -f "${CLOUDFLARED_TOKEN_FILE:-/data/tunnel-token}"
     bashio::log.debug "using ${config_file} config file"
     options+=(--origincert="${certificate}")
     options+=(--config="${config_file}")
@@ -70,5 +79,5 @@ else
 fi
 
 bashio::log.info "Connecting Cloudflare Tunnel..."
-bashio::log.debug "cloudflared tunnel ${options[*]}"
+bashio::log.debug "Starting cloudflared tunnel (arguments omitted from logs)"
 exec cloudflared tunnel "${options[@]}"

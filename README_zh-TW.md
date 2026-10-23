@@ -2,15 +2,15 @@
 
 [English](README.md)
 
-**Fork 自 [homeassistant-apps/app-cloudflared][upstream]，通道本體原封不動，
-外加一層 Web GUI。**
+**Fork 自 [homeassistant-apps/app-cloudflared][upstream]，增加 Web GUI 與
+WOOW PaaS 連結引導。**
 
 用 Cloudflare Tunnel 遠端連回 Home Assistant，不用開任何 port——而且整個設定
 流程都在瀏覽器裡完成，不必再到 YAML 設定頁與 Log 分頁裡挖授權連結。
 
 ## 功能
 
-原版 Cloudflared add-on 的所有功能，行為完全一致：
+保留原版 Cloudflared add-on 的本機與遠端 Tunnel 模式：
 
 - 本地管理通道（由 add-on 建立）與遠端管理通道（Cloudflare Dashboard 的
   `tunnel_token`）。
@@ -18,7 +18,7 @@
   `additional_hosts`、`tunnel_name`、`catch_all_service`、
   `nginx_proxy_manager`、`post_quantum`、`tunnel_token`、`run_parameters`、
   `log_level`。
-- HA Log 分頁的記錄輸出完全相同。
+- HA Log 分頁仍可看執行狀態；debug 記錄不再輸出機密憑證。
 
 再加上 **Web GUI**，透過 Home Assistant Ingress 提供（側邊欄面板、由 HA
 登入把關、零額外 port）：
@@ -27,6 +27,7 @@
 |------|------|
 | **Dashboard** | 即時通道狀態（edge 連線數）、add-on 狀態、一鍵重啟 |
 | **Setup** | 首次設定精靈——Cloudflare 授權網址直接變成可點擊的連結，不用去 log 裡撿 |
+| **PaaS 連結** | 導覽訂閱、短碼授權、逐路由保護檢查、綁定、外部探測與解除綁定 |
 | **Config** | 編輯所有 add-on 選項；透過 Supervisor API 儲存，HA 設定頁與 GUI 永遠同步 |
 | **Logs** | 即時 log 串流（內容與 HA Log 分頁相同），可過濾、可下載 |
 
@@ -44,36 +45,41 @@ Supervisor options 是**唯一事實來源**：在 GUI 存的設定會出現在 
 
 2. 安裝 **Woow Cloudflared** add-on 並啟動。
 
-3. 打開 Web GUI（add-on 的 **OPEN WEB UI** 按鈕或側邊欄面板），照著 Setup
-   頁走完即可——主機名稱、路由、Cloudflare 授權全部在瀏覽器裡完成。
+3. 打開 Web GUI（add-on 的 **OPEN WEB UI** 按鈕或側邊欄面板）。使用 WOOW
+   PaaS 訂閱時走 **PaaS 連結**；自行管理 Cloudflare 時走 **Setup**。
+
+訂閱付款、應用路由、Access 規則及 DNS 刪除仍在 PaaS Portal 操作。GUI 提供
+對應頁面的連結，完成後可選服務、確認每個網址的保護，再由 add-on 自動領取並
+綁定 Tunnel token，不必手貼。匿名外部探測只反映回應，不能證明指定使用者已登入。
 
 完整設定說明見 [add-on 文件](cloudflared/DOCS.md)（承襲上游，內容完全適用）。
 
 ## 與上游的差異
 
-這個 fork 刻意不動通道本體（相同的 s6 服務、相同的 bash 腳本、相同的
-cloudflared 參數），因此上游發佈新版時可以直接 `git merge` 同步。新增的部分：
+這個 fork 保留上游的本機與遠端 Tunnel 模式，並加入：
 
 - 一個 `webgui` s6 服務（FastAPI + Vue 3）與通道並行，經 Ingress 走內部
   port 8099。
 - `hassio_role: manager`，讓 GUI 能透過 Supervisor API 讀寫自己的選項並
   重啟 add-on。
-- 唯一的行為差異：設定**完全空白**時，原版會直接致命退出；此 fork 讓 GUI
-  保持可連（通道停止），首次設定可以在瀏覽器完成。只要存過任何設定，
-  行為與上游完全一致。
+- 遠端 token 透過私有檔案交給 cloudflared，metrics 只監聽 loopback，原始日誌
+  不輸出本機 TunnelSecret。
+- 設定**完全空白**時仍讓 GUI 可連（通道停止），首次設定可在瀏覽器完成。
+- PaaS 連結透過 OAuth 與 Supervisor API 管理這個 add-on 自己的連線和重啟。
 
 ## 架構
 
 ```
 ┌─ Add-on 容器 ──────────────────────────────────────────────────┐
 │  s6-overlay                                                    │
-│   ├── prepare（oneshot，原封 fork）：驗證 → login →              │
+│   ├── prepare（oneshot）：驗證 → login →                         │
 │   │     建 tunnel → 產 config.json → 設定 DNS                   │
-│   ├── cloudflared（主服務，原封 fork）：跑通道，                   │
+│   ├── cloudflared（主服務）：跑通道，                            │
 │   │     stdout → HA Log 分頁                                    │
 │   └── webgui（新增，FastAPI :8099，走 HA Ingress）               │
 │         ├── Supervisor API：讀寫 options、重啟、                  │
 │         │     log 串流（→ ring buffer → WebSocket）              │
+│         ├── PaaS OAuth／服務檢查／Tunnel 綁定                     │
 │         ├── 從 log 串流擷取授權網址                                │
 │         └── 由 cloudflared metrics :36500 取得通道狀態            │
 └────────────────────────────────────────────────────────────────┘

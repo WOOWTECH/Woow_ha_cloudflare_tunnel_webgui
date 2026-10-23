@@ -2,8 +2,8 @@
 
 [繁體中文](README_zh-TW.md)
 
-**A fork of [homeassistant-apps/app-cloudflared][upstream] with a Web GUI on
-top of the unchanged tunnel core.**
+**A fork of [homeassistant-apps/app-cloudflared][upstream] with a Web GUI and
+guided WOOW PaaS connection.**
 
 Use a Cloudflare Tunnel to remotely connect to Home Assistant without opening
 any ports — and configure the whole thing from your browser instead of a YAML
@@ -11,7 +11,7 @@ options page and log-tab archaeology.
 
 ## What you get
 
-Everything the original Cloudflared add-on does, behaving identically:
+The original Cloudflared add-on's local and remote tunnel modes remain available:
 
 - Local-managed tunnels (created by the add-on) and remote-managed tunnels
   (`tunnel_token` from the Cloudflare dashboard).
@@ -19,7 +19,8 @@ Everything the original Cloudflared add-on does, behaving identically:
   `additional_hosts`, `tunnel_name`, `catch_all_service`,
   `nginx_proxy_manager`, `post_quantum`, `tunnel_token`, `run_parameters`,
   `log_level`.
-- The exact same log output in the Home Assistant Log tab.
+- The same tunnel and add-on status in the Home Assistant Log tab, with
+  sensitive credentials removed from debug output.
 
 Plus a **Web GUI**, served through Home Assistant Ingress (sidebar panel,
 protected by your HA login, zero extra ports):
@@ -28,6 +29,7 @@ protected by your HA login, zero extra ports):
 |------|--------------|
 | **Dashboard** | Live tunnel status (edge connections), add-on state, one-click restart |
 | **Setup** | Guided first run — the Cloudflare authorization URL appears as a clickable link instead of being buried in the log |
+| **PaaS link** | Guided subscription link, device authorization, protected route review, tunnel binding, external checks and disconnect |
 | **Config** | Edit every add-on option; saved through the Supervisor API so the HA configuration page and the GUI always stay in sync |
 | **Logs** | Live log stream (same content as the HA Log tab) with filter and download |
 
@@ -46,39 +48,48 @@ save in the GUI shows up on the HA add-on configuration page and vice versa.
 2. Install the **Woow Cloudflared** add-on and start it.
 
 3. Open the Web GUI (the add-on's **OPEN WEB UI** button or the sidebar
-   panel) and follow the Setup page. That's it — hostnames, routes, and the
-   Cloudflare authorization all happen in the browser.
+   panel). Use **PaaS link** for a WOOW PaaS subscription, or **Setup** for a
+   locally managed Cloudflare tunnel.
+
+PaaS billing, route editing, Access policies and DNS deletion still happen in
+the PaaS Portal. The GUI links directly to the relevant pages, checks the
+service, and connects the add-on without asking you to paste a Tunnel token.
+Each route needs confirmed Access protection and an explicit email allow
+policy before the add-on can claim a tunnel. The anonymous external probe is
+an observation, not proof that a particular user can sign in.
 
 For all configuration details see the [add-on documentation](cloudflared/DOCS.md)
 — it is inherited from upstream and applies unchanged.
 
 ## How it differs from upstream
 
-This fork deliberately keeps the tunnel core untouched (same s6 services,
-same bash scripts, same cloudflared invocation) so upstream releases can be
-merged with a plain `git merge`. The additions:
+This fork retains the upstream local and remote tunnel modes. The additions:
 
 - A `webgui` s6 service (FastAPI + Vue 3) running alongside the tunnel,
   exposed via Ingress on the internal port 8099.
 - `hassio_role: manager` so the GUI can read/write the add-on's own options
   and restart it through the Supervisor API.
-- One behavioral change: with a completely **empty** configuration the
+- The runtime passes remote tunnel credentials through a private token file,
+  keeps metrics on loopback, and avoids logging local tunnel secrets.
+- With a completely **empty** configuration the
   original add-on exits fatally; this fork keeps the GUI reachable (tunnel
-  stopped) so first-time setup can happen in the browser. Any saved
-  configuration → behavior identical to upstream.
+  stopped) so first-time setup can happen in the browser.
+- The PaaS link flow stores OAuth credentials in the add-on data directory and
+  uses the Supervisor API only for this add-on's own options and restart.
 
 ## Architecture
 
 ```
 ┌─ Add-on container ─────────────────────────────────────────────┐
 │  s6-overlay                                                    │
-│   ├── prepare (oneshot, forked as-is): validate → login →      │
+│   ├── prepare (oneshot): validate → login →                     │
 │   │     create tunnel → build config.json → route DNS          │
-│   ├── cloudflared (main service, forked as-is): runs tunnel,   │
+│   ├── cloudflared (main service): runs tunnel,                  │
 │   │     stdout → HA Log tab                                    │
 │   └── webgui (new, FastAPI :8099 behind HA Ingress)            │
 │         ├── Supervisor API: options read/write, restart,       │
 │         │     log stream (→ ring buffer → WebSocket)           │
+│         ├── PaaS OAuth / service review / binding              │
 │         ├── login-URL capture from the log stream              │
 │         └── tunnel status via cloudflared metrics :36500       │
 └────────────────────────────────────────────────────────────────┘

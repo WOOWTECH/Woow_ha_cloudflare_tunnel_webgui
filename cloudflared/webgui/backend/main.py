@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .ingress_guard import guard
 from .instances import logwatcher, supervisor
-from .routers import health, logs, options, wizard
+from .routers import health, logs, options, paas, wizard
 
 STATIC_DIR = Path(os.environ.get("WEBGUI_STATIC", "/opt/webgui/static"))
 
@@ -25,6 +25,7 @@ STATIC_DIR = Path(os.environ.get("WEBGUI_STATIC", "/opt/webgui/static"))
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await logwatcher.start()
+    await paas.reconcile_pending_disconnect()
     yield
     await logwatcher.stop()
     await supervisor.close()
@@ -49,6 +50,7 @@ app.include_router(health.router)
 app.include_router(options.router)
 app.include_router(logs.router)
 app.include_router(wizard.router)
+app.include_router(paas.router)
 
 # Mounted last so /api/* keeps precedence. All frontend assets use relative
 # paths (vite base './' + hash routing) so the app works under the dynamic

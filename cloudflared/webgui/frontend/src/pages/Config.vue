@@ -104,6 +104,7 @@
           Route additional hostnames through the tunnel to other local
           services. DNS entries are created automatically on start.
         </p>
+        <p class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">Local 模式移除網址或停用 add-on，不會自動刪除 Cloudflare DNS。請到 Cloudflare DNS 檢查該網址的 CNAME，確認不再使用後才刪除；也請檢查對應 Access 應用。</p>
         <RouteEditor :routes="form.routes" @update:routes="form.routes = $event" />
       </fieldset>
 

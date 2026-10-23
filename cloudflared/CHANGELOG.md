@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Added
+- WOOW PaaS guided connection in the Ingress GUI: portal links for subscription
+  and Access configuration, device authorization, workspace/service selection,
+  per-route protection review, tunnel binding, restart, status, anonymous
+  external HTTPS checks, disconnect and OAuth revocation. Billing and remote
+  DNS/Access deletion still happen in the PaaS Portal.
+- Isolated backend, shell and browser coverage for the new flow.
+
+### Security
+- Remote tunnel tokens now use a private `--token-file` instead of process
+  arguments; debug logs no longer print full tunnel options, local tunnel
+  credentials or generated ingress config. The cloudflared metrics listener
+  binds `127.0.0.1:36500` rather than all container interfaces. Anyone who
+  scraped port 36500 from outside the add-on must switch to a local collector
+  or the PaaS / GUI status API; the port number itself did not change.
+- Frontend lockfile updates eliminate production `npm audit` findings. Three
+  moderate findings remain in the Tailwind 3 build-only toolchain; the
+  suggested Tailwind 4 upgrade requires a separate compatibility pass.
+
+### Migration
+- Existing Local and manually configured token modes remain available. PaaS
+  connection will not overwrite a manually stored Tunnel token; remove it
+  deliberately on the Config page before linking a PaaS service. Disconnect
+  clears the managed token and local route options to prevent fallback to an
+  unintended public Local tunnel. Save any Local settings you want to restore
+  before disconnecting.
+
 ### Fixed
 - Unbreak the image build again. Alpine rebuilt `yq-go` from `4.53.3-r1` to
   `4.53.3-r2`, so the pinned `apk add yq-go=4.53.3-r1` could not resolve. The
