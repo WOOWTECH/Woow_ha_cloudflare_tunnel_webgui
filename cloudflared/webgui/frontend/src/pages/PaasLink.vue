@@ -54,6 +54,7 @@
           <h2 class="text-lg font-semibold text-gray-900">選服務，確認每個網址有保護</h2>
           <p class="mt-1 text-sm leading-6 text-gray-600">先在 PaaS 的「應用路由」新增網址，再到「存取控制」設定允許登入的人。回到這裡選擇該服務。</p>
           <template v-if="bootstrap?.authorized">
+            <button :disabled="busy" class="mt-4 rounded-lg border border-cf-orange bg-orange-50 px-4 py-2 text-sm font-semibold text-cf-orange hover:bg-orange-100 disabled:opacity-50" @click="refreshServices">我已在 PaaS 完成，重新讀取服務</button>
             <div class="mt-5 grid gap-3 sm:grid-cols-2">
               <label class="text-sm font-medium text-gray-700">工作區
                 <select v-model="workspaceId" class="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm" @change="onWorkspaceChange">
@@ -198,6 +199,27 @@ async function loadBootstrap() {
 
 async function loadWorkspaces() {
   workspaces.value = (await api<{ workspaces: Workspace[] }>('api/paas/workspaces')).workspaces
+}
+
+async function refreshServices() {
+  busy.value = true
+  error.value = ''
+  try {
+    const previousWorkspace = workspaceId.value
+    const previousAccess = accessId.value
+    await loadWorkspaces()
+    workspaceId.value = workspaces.value.some((item) => item.id === previousWorkspace) ? previousWorkspace : null
+    await onWorkspaceChange()
+    if (accesses.value.some((item) => item.id === previousAccess)) {
+      accessId.value = previousAccess
+      await loadReview()
+    }
+    if (!error.value) message.value = '服務列表已更新。請選擇服務，確認保護設定後再連結。'
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '暫時無法更新服務列表'
+  } finally {
+    busy.value = false
+  }
 }
 
 async function onWorkspaceChange() {
