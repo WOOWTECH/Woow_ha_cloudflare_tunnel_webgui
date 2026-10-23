@@ -8,11 +8,18 @@ declare config_file="/tmp/config.json"
 declare certificate="/data/cert.pem"
 declare -a options
 
+# The unconfigured idle path exits before the normal mode branch below. A
+# disconnect can therefore leave a still-valid token file behind unless it
+# is removed before that early exit.
+if ! bashio::config.has_value 'tunnel_token'; then
+    rm -f "${CLOUDFLARED_TOKEN_FILE:-/data/tunnel-token}"
+fi
+
 # WOOWTECH Web GUI patch: when the add-on is completely unconfigured the
 # prepare script skips the tunnel setup (instead of exiting fatally like
 # upstream) so the Web GUI stays reachable for first-time setup. Idle here
 # until the user saves a configuration and the add-on restarts.
-if [ -f /tmp/webgui-unconfigured ]; then
+if [ -f "${WEBGUI_UNCONFIGURED_MARKER:-/tmp/webgui-unconfigured}" ]; then
     bashio::log.notice "Add-on is not configured yet — tunnel not started."
     bashio::log.notice "Open the Web GUI (ingress panel) to configure it."
     exec sleep infinity

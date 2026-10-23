@@ -22,7 +22,10 @@ bashio::log.warning() { echo "[WARNING] $*"; }
 bashio::log.error() { echo "[ERROR] $*"; }
 bashio::log.trace() { echo "[TRACE] $*"; }
 bashio::config.true() { return 1; }
-bashio::config.has_value() { [[ "$1" == tunnel_token || ( "$1" == run_parameters && -n "${RUN_PARAMS:-}" ) ]]; }
+bashio::config.has_value() {
+    [[ "${SIMULATE_UNCONFIGURED:-0}" != 1 ]] &&
+        [[ "$1" == tunnel_token || ( "$1" == run_parameters && -n "${RUN_PARAMS:-}" ) ]]
+}
 bashio::config() {
     if [[ "$1" == run_parameters ]]; then printf '%s' "$RUN_PARAMS";
     else printf '%s' 'TEST_SECRET_DO_NOT_LOG'; fi
@@ -54,4 +57,17 @@ if PATH="$work/bin:$PATH" bash -c 'source "$1"; source "$2"' _ "$work/bashio.sh"
     echo 'FAIL: run_parameters opened the metrics listener publicly' >&2
     exit 1
 fi
+cat > "$work/bin/sleep" <<'STUB'
+#!/bin/sh
+exit 0
+STUB
+chmod +x "$work/bin/sleep"
+export SIMULATE_UNCONFIGURED=1 WEBGUI_UNCONFIGURED_MARKER="$work/unconfigured" RUN_PARAMS=''
+touch "$WEBGUI_UNCONFIGURED_MARKER"
+printf '%s' 'STALE_TEST_TOKEN' > "$work/token"
+rm -f "$work/argv"
+PATH="$work/bin:$PATH" bash -c 'source "$1"; source "$2"' _ "$work/bashio.sh" "$root/cloudflared/rootfs/run.sh" > "$work/log"
+rg -q 'not configured' "$work/log"
+test ! -e "$work/token"
+test ! -e "$work/argv"
 echo 'PASS: token is confined to a 0600 file; argv and raw log are clean; metrics use loopback'
