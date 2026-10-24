@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-10-24
+
+### Release scope
+- PaaS subscription, payment, Access configuration and remote resource deletion
+  use guided links to the PaaS Portal. This release does not perform billing
+  or remote DNS/Access deletion inside the add-on.
+- Live acceptance covered 8 base-plan trials, the catalog of 80 seat variants,
+  real HA HTTPS/WebSocket transport, binding/rebinding/revocation, and staging
+  billing and suspension/resumption. Human Email OTP/Google sign-in, Local
+  zone authorization/runtime routes, custom-domain deployment and traffic
+  analytics remain outside the completed acceptance scope. See
+  `docs/plans/paas-full-feature-acceptance-20261024.md` in the source repository.
 
 ### Added
 - Plan-aware onboarding explains route counts versus Access seats and shows
@@ -47,12 +58,15 @@
   clears the managed token and local route options to prevent fallback to an
   unintended public Local tunnel. Save any Local settings you want to restore
   before disconnecting.
+- Review the repository's `upgrade-notes.yaml` before upgrading from 1.0.4.
+  Back up the add-on first. Only the documented run-parameter allow-list is
+  accepted; remove unsupported flags and keep credentials in the token field.
 
 ### Fixed
 - Unbreak the image build again. Alpine rebuilt `yq-go` from `4.53.3-r1` to
   `4.53.3-r2`, so the pinned `apk add yq-go=4.53.3-r1` could not resolve. The
   Alpine 3.24 community repo now carries `4.53.3-r2` on both `x86_64` and
-  `aarch64`; the pin matches it. No version bump: this ships with the next one.
+  `aarch64`; the pin matches it.
 
 ## 1.0.4 — 2026-09-08
 
