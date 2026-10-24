@@ -4,11 +4,12 @@ addon: cloudflared
 from_version: "1.0.4"
 to_version: "1.1.0"
 breaking_changes:
-  - id: run-parameter-allow-list
-    affects: schema.run_parameters
+  - id: runtime-credential-and-metrics-guard
+    affects: rootfs/run.sh runtime handling of run_parameters
     change: >-
-      Arbitrary run parameters are no longer accepted. Credential and metrics
-      overrides are rejected; only the documented allow-list is supported.
+      The 1.0.4 Supervisor schema and GUI already restricted run parameters.
+      Version 1.1.0 adds a startup-script guard that rejects --token,
+      --token-file and --metrics even if options bypassed those validators.
     migration: >-
       Remove unsupported flags before upgrade. Put a manually managed Tunnel
       token in tunnel_token instead of --token or --token-file. Remove --metrics;
@@ -44,7 +45,7 @@ behavior_changes:
       configuration and final DNS/Access deletion remain in the PaaS Portal.
 preserved:
   - Add-on slug, image name, supported architectures and Ingress port 8099.
-  - Existing option names and Local/manual-token modes.
+  - Existing option names, schema allow-list and Local/manual-token modes.
   - Existing /data and addon_config storage mappings.
 backup_and_rollback:
   - Create a Home Assistant add-on backup before upgrading.
