@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- Plan-aware onboarding explains route counts versus Access seats and shows
+  seat usage. Zero-seat plans and missing explicit login methods get actionable
+  guidance. The PaaS page also explains HA port and trusted proxy setup.
 - WOOW PaaS guided connection in the Ingress GUI: portal links for subscription
   and Access configuration, device authorization, workspace/service selection,
   per-route protection review, tunnel binding, restart, status, anonymous
@@ -11,6 +14,11 @@
 - Isolated backend, shell and browser coverage for the new flow.
 
 ### Security
+- Validation errors no longer reflect submitted credentials, including whole
+  request bodies and tokens accidentally pasted into run parameters.
+- Config cannot replace or remove a PaaS-managed token. Use the PaaS disconnect
+  flow first; pending release also blocks configuration changes. Writes are
+  serialized with connection and disconnection operations.
 - Remote tunnel tokens now use a private `--token-file` instead of process
   arguments; debug logs no longer print full tunnel options, local tunnel
   credentials or generated ingress config. The cloudflared metrics listener

@@ -264,6 +264,8 @@ def _review(access: dict) -> dict:
     subscription = access.get("subscription")
     if not isinstance(subscription, dict) or subscription.get("state") != "in_progress":
         issues.append("訂閱無效，請到 PaaS 開通或續訂")
+    if isinstance(subscription, dict) and subscription.get("ac_max_access_seats") == 0:
+        issues.append("此方案尚未加購 Access 席次；請到 PaaS 方案設定選擇至少 1 席，再加入允許登入的 Email")
     if not access.get("tunnel_id"):
         issues.append("Tunnel 尚未建立，請到 PaaS 完成部署")
     connection = _state().get("connection") or {}
@@ -293,6 +295,9 @@ def _review(access: dict) -> dict:
                 )
             ) for p in (policies if isinstance(policies, list) else [])
         )
+        login_ready = route.get("login_google") is True or route.get("login_email_otp") is True
+        if not login_ready:
+            issues.append(f"{host}：尚未指定登入方式；請在 PaaS 勾選 Email OTP 或 Google")
         protected = (
             bool(route.get("hostname")) and bool(route.get("service_url"))
             and route.get("is_protected") is True
@@ -300,7 +305,7 @@ def _review(access: dict) -> dict:
             and route.get("access_protection_lost") is False
             and route.get("access_publish_pending") is False
             and not route.get("access_unresolved_idp_types")
-            and (route.get("login_google") is True or route.get("login_email_otp") is True)
+            and login_ready
             and allow
             and not broad_access
         )
@@ -311,7 +316,9 @@ def _review(access: dict) -> dict:
     access_id = access.get("id")
     summary = {
         "id": access_id, "workspace_id": workspace_id, "name": access.get("name"), "state": access.get("state"),
-        "subscription": {"state": subscription.get("state"), "plan_name": subscription.get("plan_name")} if isinstance(subscription, dict) else None,
+        "subscription": {key: subscription.get(key) for key in (
+            "state", "plan_name", "ac_max_access_seats", "ac_used_access_seats",
+        )} if isinstance(subscription, dict) else None,
         "binding_state": access.get("binding_state"), "bound_instance_label": access.get("bound_instance_label"),
         "connector_count": access.get("connector_count"), "routes": safe_routes,
     }

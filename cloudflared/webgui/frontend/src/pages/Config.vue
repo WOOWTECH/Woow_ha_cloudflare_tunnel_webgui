@@ -26,10 +26,16 @@
             Log Level still apply.
           </p>
           <TokenInput
+            v-if="!configStore.options?.tunnel_token_managed_by_paas"
             :masked-value="configStore.options?.tunnel_token_masked ?? ''"
             placeholder="eyJhIjoiLi4uIiwidCI6Ii4uLiIsInMiOiIuLi4ifQ=="
             @update:token="tokenInput = $event"
           />
+          <p v-else class="rounded-lg bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
+            此憑證由 PaaS 自動管理。若要改用手動 token 或 Local 模式，請先到
+            <router-link to="/paas" class="font-semibold underline">PaaS 連結</router-link>
+            停止連線並解除綁定。
+          </p>
           <div class="flex items-center gap-3">
             <span
               class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -42,7 +48,7 @@
               {{ configStore.options?.tunnel_token_set ? 'token configured' : 'no token' }}
             </span>
             <button
-              v-if="configStore.options?.tunnel_token_set"
+              v-if="configStore.options?.tunnel_token_set && !configStore.options?.tunnel_token_managed_by_paas"
               type="button"
               class="text-xs font-medium text-red-500 hover:text-red-700"
               @click="clearToken = !clearToken"

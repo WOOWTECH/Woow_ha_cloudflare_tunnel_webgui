@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -32,6 +33,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Woow Cloudflared", lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    # Pydantic includes the submitted value (or whole body) in errors.
+    # Preserve field locations and guidance without reflecting credentials.
+    return JSONResponse(
+        status_code=422,
+        content={"detail": [
+            {key: error[key] for key in ("type", "loc", "msg")}
+            for error in exc.errors()
+        ]},
+    )
 
 
 @app.middleware("http")

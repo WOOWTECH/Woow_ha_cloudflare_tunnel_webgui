@@ -18,6 +18,10 @@
         <div class="min-w-0 flex-1">
           <h2 class="text-lg font-semibold text-gray-900">到 PaaS 開通訂閱</h2>
           <p class="mt-1 text-sm leading-6 text-gray-600">在 PaaS 選擇工作區與方案，建立安全存取服務。費用與付款都會在 PaaS 確認；這裡不會自動扣款。</p>
+          <div class="mt-3 rounded-xl bg-orange-50 px-4 py-3 text-sm leading-6 text-orange-900">
+            <p class="font-semibold">一台 HA、一個人登入：選 1 組路由 ＋ 1 個 Access 席次。</p>
+            <p class="mt-1">路由是對外網址的數量；席次是允許登入的人數。選「不加購」沒有登入席次，無法完成本頁的安全連結。多人使用時，請依不同 Email 的人數加購。</p>
+          </div>
           <a :href="bootstrap?.portal_url || portalFallback" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex rounded-lg bg-cf-orange px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600">前往 PaaS 開通 ↗</a>
           <p class="mt-3 text-xs text-gray-500">已經開通了？繼續下方的帳戶授權，就能選擇現有服務。</p>
         </div>
@@ -53,6 +57,12 @@
         <div class="min-w-0 flex-1">
           <h2 class="text-lg font-semibold text-gray-900">選服務，確認每個網址有保護</h2>
           <p class="mt-1 text-sm leading-6 text-gray-600">先在 PaaS 的「應用路由」新增網址，再到「存取控制」設定允許登入的人。回到這裡選擇該服務。</p>
+          <details class="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <summary class="cursor-pointer font-semibold">HA 的內部網址要填什麼？出現 400 或 502 怎麼辦？</summary>
+            <p class="mt-3 leading-6">先到 HA「設定 → 系統 → 網路」確認 HTTP 埠。新版 HAOS 通常填 <code>http://homeassistant:80</code>；使用 8123 埠的安裝則填 <code>http://homeassistant:8123</code>。請以這台 HA 的實際設定為準。</p>
+            <p class="mt-2 leading-6">502 通常要檢查內部位址、埠與服務是否啟動。若 HA 回 400，檢查 HA 日誌是否拒絕反向代理；在 HTTP 設定啟用 Trust X-Forwarded-For，並把此 add-on 的代理 IP 加入 Trusted proxies，再確認重啟後的設定。</p>
+            <a href="https://www.home-assistant.io/integrations/http/#reverse-proxies" target="_blank" rel="noopener noreferrer" class="mt-2 inline-block font-semibold text-cf-orange underline">HA 官方反向代理設定說明 ↗</a>
+          </details>
           <template v-if="bootstrap?.authorized">
             <button :disabled="busy" class="mt-4 rounded-lg border border-cf-orange bg-orange-50 px-4 py-2 text-sm font-semibold text-cf-orange hover:bg-orange-100 disabled:opacity-50" @click="refreshServices">我已在 PaaS 完成，重新讀取服務</button>
             <div class="mt-5 grid gap-3 sm:grid-cols-2">
@@ -76,6 +86,7 @@
                 <button class="text-xs font-semibold text-slate-700 underline" @click="loadReview">重新檢查</button>
               </div>
               <p class="mt-2 text-xs text-gray-600">訂閱：{{ review.access.subscription?.plan_name || '尚未訂閱' }}（{{ subscriptionLabel(review.access.subscription?.state) }}） · 服務：{{ serviceLabel(review.access.state) }} · 綁定：{{ bindingLabel(review.access.binding_state) }}</p>
+              <p v-if="review.access.subscription?.ac_max_access_seats != null" class="mt-2 text-xs text-gray-600">Access 席次：已使用 {{ review.access.subscription.ac_used_access_seats ?? '—' }} / {{ review.access.subscription.ac_max_access_seats }} 席。同一個 Email 用於多個網址只計 1 席。</p>
               <div v-for="route in review.access.routes" :key="route.hostname" class="mt-3 rounded-lg bg-white px-4 py-3 text-sm text-gray-700">
                 <span :class="route.protected ? 'text-emerald-700' : 'text-red-700'" class="font-bold">{{ route.protected ? '✓' : '!' }}</span>
                 <span class="ml-2 font-medium">{{ route.hostname }}</span>
@@ -142,7 +153,7 @@ interface Connection { access_id: number; workspace_id: number; name: string }
 interface Bootstrap { authorized: boolean; portal_url: string; connection: Connection | null; release_pending: boolean }
 interface Workspace { id: number; name: string; portal_url: string }
 interface Access { id: number; name: string; state: string }
-interface Review { ready: boolean; issues: string[]; access: { id: number; name: string; state: string; binding_state: string; subscription: { state: string; plan_name: string } | null; routes: { hostname: string; protected: boolean }[] }; portal_access_url: string; portal_routes_url: string }
+interface Review { ready: boolean; issues: string[]; access: { id: number; name: string; state: string; binding_state: string; subscription: { state: string; plan_name: string; ac_max_access_seats?: number | null; ac_used_access_seats?: number | null } | null; routes: { hostname: string; protected: boolean }[] }; portal_access_url: string; portal_routes_url: string }
 interface Authorization { user_code: string; verification_url: string; interval: number }
 interface ConnectionStatus { connected: boolean; subscription: { state: string } | null; access_ready: boolean; issues: string[]; tunnel_status: string; checked_at: number; external: { hostname: string; status: string; http_status?: number }[] }
 

@@ -173,6 +173,20 @@ def test_subscription_list_and_review_are_read_only(client, fake_paas, tmp_path)
     assert all("tunnel-token" not in path for path, _ in fake_paas)
 
 
+def test_zero_seat_plan_explains_purchase_before_connect(client, fake_paas, tmp_path):
+    (tmp_path / "link.json").write_text(json.dumps({
+        "access_token": "PRIVATE_ACCESS_TOKEN", "refresh_token": "PRIVATE_REFRESH_TOKEN",
+        "expires_at": time.time() + 3600,
+    }))
+    fake_paas.detail["subscription"].update(ac_max_access_seats=0, ac_used_access_seats=0)
+    review = client.get("/api/paas/accesses/25/review").json()
+    assert review["ready"] is False
+    assert any("至少 1 席" in issue for issue in review["issues"])
+    assert review["access"]["subscription"]["ac_max_access_seats"] == 0
+    assert client.post("/api/paas/accesses/25/connect").status_code == 409
+    assert all("tunnel-token" not in path for path, _ in fake_paas)
+
+
 def test_protected_subscription_claims_and_installs_token(client, fake_paas, fake_supervisor, tmp_path):
     (tmp_path / "link.json").write_text(json.dumps({
         "access_token": "PRIVATE_ACCESS_TOKEN",
@@ -190,6 +204,37 @@ def test_protected_subscription_claims_and_installs_token(client, fake_paas, fak
     assert state["connection"]["access_id"] == 25
     assert state["instance_uid"]
     assert "PRIVATE_TUNNEL_TOKEN" not in (tmp_path / "link.json").read_text()
+
+
+def test_config_cannot_remove_managed_token(client, fake_paas, fake_supervisor, tmp_path):
+    (tmp_path / "link.json").write_text(json.dumps({
+        "access_token": "PRIVATE_ACCESS_TOKEN", "refresh_token": "PRIVATE_REFRESH_TOKEN",
+        "expires_at": time.time() + 3600,
+    }))
+    assert client.post("/api/paas/accesses/25/connect").status_code == 200
+    fake_supervisor.restarted = False
+    assert client.get("/api/options").json()["tunnel_token_managed_by_paas"] is True
+    res = client.put("/api/options?restart=true", json={
+        "external_hostname": "ha.example.com", "tunnel_token": "",
+    })
+    assert res.status_code == 409
+    assert "解除綁定" in res.json()["detail"]
+    assert fake_supervisor.options["tunnel_token"] == "PRIVATE_TUNNEL_TOKEN"
+    assert not fake_supervisor.restarted
+    assert client.get("/api/paas/bootstrap").json()["connection"]["access_id"] == 25
+    # Unrelated advanced settings still work without resending credentials.
+    assert client.put("/api/options", json={"log_level": "debug"}).status_code == 200
+    assert fake_supervisor.options["tunnel_token"] == "PRIVATE_TUNNEL_TOKEN"
+
+
+def test_config_cannot_restart_local_route_during_pending_release(client, fake_paas, fake_supervisor, tmp_path):
+    (tmp_path / "link.json").write_text(json.dumps({"release_pending": True}))
+    before = dict(fake_supervisor.options)
+    assert client.put("/api/options?restart=true", json={
+        "external_hostname": "ha.example.com",
+    }).status_code == 409
+    assert fake_supervisor.options == before
+    assert not fake_supervisor.restarted
 
 
 def test_supervisor_rejection_releases_new_binding(client, fake_paas, fake_supervisor, tmp_path, monkeypatch):
@@ -254,6 +299,19 @@ def test_unpaid_draft_subscription_blocks_claim(client, fake_paas, tmp_path):
     fake_paas.detail["subscription"]["state"] = "draft"
     response = client.post("/api/paas/accesses/25/connect")
     assert response.status_code == 409
+    assert all("tunnel-token" not in path for path, _ in fake_paas)
+
+
+def test_published_access_without_login_method_is_explained_and_blocked(client, fake_paas, tmp_path):
+    (tmp_path / "link.json").write_text(json.dumps({
+        "access_token": "PRIVATE_ACCESS_TOKEN", "refresh_token": "PRIVATE_REFRESH_TOKEN",
+        "expires_at": time.time() + 3600,
+    }))
+    fake_paas.detail["routes"][0].update(login_email_otp=False, login_google=False)
+    review = client.get("/api/paas/accesses/25/review").json()
+    assert review["ready"] is False
+    assert any("登入方式" in issue for issue in review["issues"])
+    assert client.post("/api/paas/accesses/25/connect").status_code == 409
     assert all("tunnel-token" not in path for path, _ in fake_paas)
 
 

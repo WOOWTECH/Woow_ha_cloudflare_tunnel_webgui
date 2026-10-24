@@ -85,4 +85,4 @@ GUI 後端自有 `/api/paas/authorization`、`/authorization/status`、`/workspa
 
 現場運作的是候選版，不是正式發行版；GUI 的桌機／手機截圖使用隔離 mock 資料，沒有在 HA 登入瀏覽器中逐一點擊。付款、指定收件者實際收 OTP 並完成登入、以及正式版本升級不在這次試用驗收結論內。專用 CF Web GUI OAuth client 與在 GUI 內直接訂閱仍需平台 API 配合。Cloudflare 資源清理由 PaaS 正式刪除流程完成，GUI 本身只導向此流程。
 
-驗收收據保存在工作區私人目錄 `reports/aiot-secure-access-20261020/private/e2e-20261024/`，公開教學頁只引用已遮蔽的狀態。PR #6 最新修補的 GitHub amd64／aarch64 建置均通過；Release 因未升版本而跳過。
+驗收收據保存在工作區私人目錄 `/home/woowtechcluster1/.local/state/cf-gui-acceptance/private/e2e-20261024/`，公開教學頁只引用已遮蔽的狀態。PR #6 最新修補的 GitHub amd64／aarch64 建置均通過；Release 因未升版本而跳過。
