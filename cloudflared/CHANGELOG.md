@@ -58,7 +58,7 @@
   clears the managed token and local route options to prevent fallback to an
   unintended public Local tunnel. Save any Local settings you want to restore
   before disconnecting.
-- Review the repository's `upgrade-notes.yaml` before upgrading from 1.0.4.
+- Review `cloudflared/upgrade-notes.yaml` before upgrading from 1.0.4.
   Back up the add-on first. Only the documented run-parameter allow-list is
   accepted; remove unsupported flags and keep credentials in the token field.
 
