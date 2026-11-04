@@ -27,13 +27,18 @@ Portal 目前可用路徑：`https://aiot.woowtech.io/woow#/workspaces`；選定
 
 「你要讓 `ha.example.com` 安全連回這台 Home Assistant。先到 PaaS 選方案、建立網址，並設定只有 `alice@example.com` 可登入。回來後選擇剛建立的『家用 HA』，按『連結並啟用』。完成時你會看到：服務有效、Access 已發布、Tunnel 在線、網址實測結果。」
 
-PaaS 服務若有 `ha.example.com` 和 `nas.example.com` 兩條路由，**兩條都必須有 Access 保護且無失效/待發布/未解析 IdP** 才能啟動同一個 Tunnel；不能只檢查 HA 路由而讓 NAS 裸露。`access_configuration_ready` 為 PaaS 的寫入收據，仍需獨立外部探測才可宣稱外界真的需要登入。
+PaaS 服務若有 `ha.example.com` 和 `nas.example.com` 兩條路由，**兩條都必須有 Access 保護且無失效/未解析 IdP** 才能啟動同一個 Tunnel（「待發布」不是阻擋條件，見下方預檢第 3 點）；不能只檢查 HA 路由而讓 NAS 裸露。`access_configuration_ready` 為 PaaS 的寫入收據，仍需獨立外部探測才可宣稱外界真的需要登入。
 
 ## 系統邊界與狀態
 
 1. 授權：後端向 `/oauth2/device_authorization` 申請碼，依 RFC 8628 的 `interval`/`slow_down` 輪詢 `/oauth2/token`。前端只收 user code、核准網址、到期時間；`device_code`、access/refresh token 永不返回。初版沿用平台現有 public client `woow-ha-smart-home`，只請求 Security Access 所需的三個 scope；後續建立專用 `woow-cf-webgui` client 並遷移（避免授權同意頁名稱誤導）。
 2. 儲存：OAuth refresh token 與本 add-on 專屬隨機 `instance_uid` 在 `/data` 原子寫入、權限 0600；API 只回遮蔽的帳戶/綁定摘要。刷新 token 不可寫日誌。HA 備份會複製 UID；恢復到新機時必須檢查 `binding_conflict` 與 `connector_count`，顯示換機程序，不能默認為同一台。
-3. 預檢：必須有有效訂閱/可部署狀態、非空 tunnel ID、至少一條完整路由、每條 route 的 `is_protected=true`、`access_configuration_ready=true`、`access_protection_lost=false`、`access_publish_pending=false`、`access_unresolved_idp_types` 空，且至少一條明確 allow policy。未知欄位採 fail-closed。此處尚不是 Access 邊緣生效證據。
+3. 預檢分兩層。
+   - **設定面（必須全部成立，否則不取 token）**：有效訂閱/可部署狀態、非空 tunnel ID、至少一條完整路由；每條 route 的 `is_protected=true`、`access_protection_lost=false`、`access_unresolved_idp_types` 空、至少一種登入方式；至少一條點名 Email 或網域的明確 allow policy，且沒有 bypass／everyone／IP 範圍／國家這類放行。未知欄位採 fail-closed。
+   - **發布面**：`access_configuration_ready`、`access_publish_pending`。兩者都確認時，路由標為「保護已確認」。設定面成立、但仍是 `access_publish_pending=true` 時，標為「等待發布」，**不阻擋連結**。
+   - 為什麼不能等發布完成才連：使用者在 Portal 先開保護、再設登入方式與規則（Portal 只能照這個順序操作），會被 PaaS 視為授權變更，觸發 token 撤銷與 `access_publish_pending=true`。撤銷保留期過後，PaaS 只有在 tunnel 有**在線 connector** 時才重新確認 Access 並解除 pending（`_access_recovery_tunnel_is_live`）。新建、從沒連過的 tunnel 因此永遠不會自己解除 pending；GUI 若要求 pending=false 才啟動 connector，兩邊互等成死結（2026-11-04 在 SA61 實測重現）。
+   - 為什麼放行仍安全：pending 期間 PaaS 推給 tunnel 的 origin 是 `http_status:503`（`_build_route_payload`），流量進不到來源服務。connector 上線後，PaaS 的探測／resync 會重新確認 Access 並換回真正的服務網址（SA61 實測：connector 17:44 上線，17:51 解除 pending）。
+   - 此處仍不是 Access 邊緣生效證據；生效與否以連結後的匿名外部探測為準。
 4. 綁定：呼叫 `GET /api/security-access/accesses/{id}/tunnel-token?instance_uid=...&instance_label=...`，PaaS 以 owner/admin + `security-access:tunnel` 驗證；409 不能覆蓋。保存 token 到 Supervisor，重啟 add-on。若 Supervisor 寫入失敗，刪除剛取得的 binding；若重啟後失敗，保留綁定並提供修復/撤權選項，避免失去追溯。
 5. 執行：cloudflared 用 0600 token file，參數列和 raw Supervisor log 不含 token；Local tunnel 的 `TunnelSecret` 也不寫日誌。metrics 只 bind loopback。正常設定頁不得回傳明文 token。
 6. 狀態：`未授權 → 待開通 → 待設定保護 → 可連結 → 綁定中 → 已連結/驗證中 → 可用`；另有 `停權/欠費`、`已被別機綁定`、`Access 失效`、`外部無法連通`、`待撤權`。每個中間狀態可重試、可返回 Portal；UI 不顯示沒有證據的成功。
