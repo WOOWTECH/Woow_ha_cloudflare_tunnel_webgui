@@ -90,14 +90,29 @@ jobs:
           component: cloudflared
           image: ghcr.io/woowtech/amd64-addon-cloudflared-webgui:${{ steps.version.outputs.version }}
 
+      # The same image is the new version of the upgrade test (pipeline
+      # #143, category 2): saved and uploaded as artifact
+      # upgrade-comparison-image-cloudflared-attempt-<run attempt>, so the
+      # comparison neither rebuilds it nor needs a PR tag on GHCR.
+      - name: Image for the upgrade test
+        if: github.event_name == 'pull_request' && matrix.arch == 'amd64'
+        uses: WOOWTECH/Woow_HA_App_Store/.github/actions/addon-image@main
+        with:
+          component: cloudflared
+          image: ghcr.io/woowtech/amd64-addon-cloudflared-webgui:${{ steps.version.outputs.version }}
+
   # Upgrade comparison (pipeline #89): a PR that bumps the add-on version is
   # compared with the latest formal Release. A breaking config.yaml change
   # not declared in cloudflared/upgrade-notes.yaml blocks it, and so does a
   # new fixable Critical/High vulnerability in the amd64 image (the SBOM from
   # "Build amd64 add-on" against the Release's GHCR image) unless that file
-  # accepts it. No needs: on the build, so a PR that changes no version
+  # accepts it. The upgrade test (#137, #143) starts the Release's GHCR image,
+  # then this PR's image (the amd64 build's artifact) on the same /data and
+  # map directories; a new version that does not start blocks. Startup only,
+  # no data check yet. No needs: on the build, so a PR that changes no version
   # passes in seconds; after a version bump the job waits for this run's SBOM
-  # artifact (actions: read) and fails if the amd64 build never uploads it.
+  # and image artifacts (actions: read) and fails if the amd64 build never
+  # uploads them.
   # On push the job passes at once, so this workflow's non-PR run (registry
   # required_workflows) still succeeds. Reported as "Upgrade comparison / compare".
   upgrade-comparison:
@@ -108,6 +123,7 @@ jobs:
     uses: WOOWTECH/Woow_HA_App_Store/.github/workflows/woow-addon-upgrade-check.yml@main
     with:
       sbom_artifact: upgrade-comparison-sbom-*
+      image_artifact: upgrade-comparison-image-*
 
   # The App Store ships only published Releases (registry ref_policy: release).
   # After the checks above pass on main, the Store's shared workflow publishes
