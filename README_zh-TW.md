@@ -48,9 +48,13 @@ Supervisor options 是**唯一事實來源**：在 GUI 存的設定會出現在 
 3. 打開 Web GUI（add-on 的 **OPEN WEB UI** 按鈕或側邊欄面板）。使用 WOOW
    PaaS 訂閱時走 **PaaS 連結**；自行管理 Cloudflare 時走 **Setup**。
 
-訂閱付款、應用路由、Access 規則及 DNS 刪除仍在 PaaS Portal 操作。GUI 提供
-對應頁面的連結，完成後可選服務、確認每個網址的保護，再由 add-on 自動領取並
-綁定 Tunnel token，不必手貼。匿名外部探測只反映回應，不能證明指定使用者已登入。
+訂閱付款、應用路由、選用的 Access 規則及 DNS 刪除仍在 PaaS Portal 操作。
+**只購買路由、不加購 Access 席次也能連結**：在 PaaS 把該路由的 Access
+開關關閉，回 add-on 檢查後確認公開網址，即可自動領取並綁定 Tunnel token。
+這種網址沒有 Cloudflare Access 身分驗證，訪客可直接到達來源服務；若來源是
+Home Assistant，仍需通過 HA 自己的登入。需要先限制允許的 Email 時，再購買
+Access 席次、開啟路由保護並設定登入方式與名單。匿名外部探測只反映回應，
+不能證明指定使用者已登入。
 
 完整設定說明見 [add-on 文件](cloudflared/DOCS.md)（承襲上游，內容完全適用）。
 

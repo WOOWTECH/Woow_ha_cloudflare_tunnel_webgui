@@ -29,7 +29,7 @@ protected by your HA login, zero extra ports):
 |------|--------------|
 | **Dashboard** | Live tunnel status (edge connections), add-on state, one-click restart |
 | **Setup** | Guided first run — the Cloudflare authorization URL appears as a clickable link instead of being buried in the log |
-| **PaaS link** | Guided subscription link, device authorization, protected route review, tunnel binding, external checks and disconnect |
+| **PaaS link** | Guided subscription link, device authorization, per-route public or Access-protected review, tunnel binding, external checks and disconnect |
 | **Config** | Edit every add-on option; saved through the Supervisor API so the HA configuration page and the GUI always stay in sync |
 | **Logs** | Live log stream (same content as the HA Log tab) with filter and download |
 
@@ -51,12 +51,16 @@ save in the GUI shows up on the HA add-on configuration page and vice versa.
    panel). Use **PaaS link** for a WOOW PaaS subscription, or **Setup** for a
    locally managed Cloudflare tunnel.
 
-PaaS billing, route editing, Access policies and DNS deletion still happen in
-the PaaS Portal. The GUI links directly to the relevant pages, checks the
-service, and connects the add-on without asking you to paste a Tunnel token.
-Each route needs confirmed Access protection and an explicit email allow
-policy before the add-on can claim a tunnel. The anonymous external probe is
-an observation, not proof that a particular user can sign in.
+PaaS billing, route editing, optional Access policies and DNS deletion still
+happen in the PaaS Portal. The GUI links directly to the relevant pages,
+checks the service, and connects the add-on without asking you to paste a
+Tunnel token. A route subscription with zero Access seats can connect when
+its routes are explicitly configured as public; the UI and backend require
+confirmation before exposing those hostnames. Public routes have no
+Cloudflare Access gate and rely on the origin application's own login.
+Protected routes still need an Access seat, login method and explicit email
+allow policy. The anonymous external probe is an observation, not proof
+that a particular user can sign in.
 
 For all configuration details see the [add-on documentation](cloudflared/DOCS.md)
 — it is inherited from upstream and applies unchanged.
